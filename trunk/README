@@ -36,6 +36,10 @@ DOCUMENTATION:
 
 See the comments in files zip.mli and gzip.mli.
 
+Compilation options:      -I +zip
+ocamlc linking options:   -I +zip zip.cma
+ocamlopt linking options: -I +zip zip.cmxa
+
 The directory test/ contains examples of using this library.
 
 LICENSING:
