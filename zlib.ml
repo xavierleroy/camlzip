@@ -53,32 +53,6 @@ let compress ?(level = 6) ?(header = true) refill flush =
     compr 0 0;
     deflate_end zs
 
-let grow_buffer s =
-  let s' = String.create (2 * String.length s) in
-  String.blit s 0 s' 0 (String.length s);
-  s'
-
-(****
-let compress_string ?(level = 6) inbuf =
-  let zs = deflate_init level true in
-  let rec compr inpos outbuf outpos =
-    let inavail = String.length inbuf - inpos in
-    let outavail = String.length outbuf - outpos in
-    if outavail = 0
-    then compr inpos (grow_buffer outbuf) outpos
-    else begin
-      let (finished, used_in, used_out) =
-        deflate zs inbuf inpos inavail outbuf outpos outavail
-                   (if inavail = 0 then Z_FINISH else Z_NO_FLUSH) in
-      if finished then 
-        String.sub outbuf 0 (outpos + used_out)
-      else
-        compr (inpos + used_in) outbuf (outpos + used_out)
-    end in
-  let res = compr 0 (String.create (String.length inbuf)) 0 in
-  deflate_end zs;
-  res
-****)
 
 let uncompress ?(header = true) refill flush =
   let inbuf = String.create buffer_size
@@ -106,25 +80,3 @@ let uncompress ?(header = true) refill flush =
   in
     uncompr 0 0;
     inflate_end zs
-
-(*****
-let uncompress_string inbuf =
-  let zs = inflate_init true in
-  let rec uncompr inpos outbuf outpos =
-    let inavail = String.length inbuf - inpos in
-    let outavail = String.length outbuf - outpos in
-    if outavail = 0
-    then uncompr inpos (grow_buffer outbuf) outpos
-    else begin
-      let (finished, used_in, used_out) =
-        inflate zs inbuf inpos inavail outbuf outpos outavail Z_SYNC_FLUSH in
-      if finished then 
-        String.sub outbuf 0 (outpos + used_out)
-      else
-        uncompr (inpos + used_in) outbuf (outpos + used_out)
-    end in
-  let res = uncompr 0 (String.create (2 * String.length inbuf)) 0 in
-  inflate_end zs;
-  res
-
-*****)

@@ -94,7 +94,7 @@ val close_in: in_file -> unit
              created by [open_in_channel], the underlying input channel
              is closed. *)
 
-(*** Writing from ZIP files *)
+(*** Writing to ZIP files *)
 
 type out_file
           (* Abstract type representing a handle opened for writing to
