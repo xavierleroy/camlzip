@@ -35,8 +35,9 @@ val input_byte: in_channel -> int
         (* Same as [Gzip.input_char], but return the 8-bit integer representing
            the character.
            Raise [End_of_file] if no more compressed data is available. *)
-val input: in_channel -> buf:string -> pos:int -> len:int -> int
-        (* Uncompress up to [len] characters from the given channel,
+val input: in_channel -> string -> int -> int -> int
+        (* [input ic buf pos len] uncompresses up to [len] characters
+           from the given channel [ic],
            storing them in string [buf], starting at character number [pos].
            It returns the actual number of characters read, between 0 and
            [len] (inclusive).
@@ -50,8 +51,9 @@ val input: in_channel -> buf:string -> pos:int -> len:int -> int
            exactly [len] characters.)
            Exception [Invalid_argument "Gzip.input"] is raised if
            [pos] and [len] do not designate a valid substring of [buf]. *)
-val really_input: in_channel -> buf:string -> pos:int -> len:int -> unit
-        (* Uncompress [len] characters from the given channel, storing them in
+val really_input: in_channel -> string -> int -> int -> unit
+        (* [really_input ic buf pos len] uncompresses [len] characters
+           from the given channel, storing them in
            string [buf], starting at character number [pos].
            Raise [End_of_file] if fewer than [len] characters can be read.
            Raise [Invalid_argument "Gzip.input"] if
@@ -62,7 +64,7 @@ val close_in: in_channel -> unit
            (of type [Pervasives.in_channel]) is also closed.
            Do not apply any of the functions above to a closed channel. *)
 val dispose: in_channel -> unit
-        (* Same as [Gzip.close_in], but do not close the underlying
+        (* Same as [Gzip.close_in], but does not close the underlying
            regular file channel (of type [Pervasives.in_channel]);
            just dispose of the resources associated with the decompression
            channel.  This can be useful if e.g. the underlying file channel
@@ -93,9 +95,10 @@ val output_char: out_channel -> char -> unit
 val output_byte: out_channel -> int -> unit
         (* Same as [Gzip.output_char], but the output character is given
            by its code.  The given integer is taken modulo 256. *)
-val output: out_channel -> buf:string -> pos:int -> len:int -> unit
-        (* Compress and write [len] characters from string [buf],
-           starting at offset [pos], to the given channel.
+val output: out_channel -> string -> int -> int -> unit
+        (* [output oc buf pos len] compresses and writes [len] characters
+           from string [buf], starting at offset [pos], and writes the
+           compressed data to the channel [oc].
            Raise [Invalid_argument "Gzip.output"] if
            [pos] and [len] do not designate a valid substring of [buf]. *)
 val close_out: out_channel -> unit
