@@ -55,11 +55,6 @@ type in_file
 val open_in: string -> in_file
           (* Open the ZIP file with the given filename.  Return a
              handle opened for reading from this file. *)
-val open_in_channel: in_channel -> in_file
-          (* Given an input channel already opened on a ZIP file,
-             return a handle reading from this file.  The input
-             channel must be opened in binary mode, and must refer
-             to a plain file. *)
 val entries: in_file -> entry list
           (* Return a list of all entries in the given ZIP file. *)
 val comment: in_file -> string
@@ -106,11 +101,6 @@ val open_out: ?comment: string -> string -> out_file
              comment string that is attached to the ZIP file as a whole
              (as opposed to the comments that can be attached to individual
              ZIP entries). *) 
-val open_out_channel: ?comment: string -> out_channel -> out_file
-          (* Same as [open_out], but write its output to the given
-             output channel.  The output channel must be opened in binary
-             mode, but is not necessarily a plain file: pipes or sockets
-             are acceptable. *)
 val add_entry:
   string -> out_file -> 
     ?extra: string -> ?comment: string -> ?level: int ->
