@@ -54,10 +54,11 @@ clean:
 	rm -f *.o *.a
 
 install:
-	cp zip.cma zip.cmi gzip.cmi zip.mli gzip.mli libcamlzip.a $(DESTDIR)
+	mkdir -p $(INSTALLDIR)
+	cp zip.cma zip.cmi gzip.cmi zip.mli gzip.mli libcamlzip.a $(INSTALLDIR)
 
 installopt:
-	cp zip.cmxa zip.a zip.cmx gzip.cmx $(DESTDIR)
+	cp zip.cmxa zip.a zip.cmx gzip.cmx $(INSTALLDIR)
 
 depend:
 	gcc -MM -I$(ZLIB_INCLUDE) *.c > .depend
