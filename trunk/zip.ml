@@ -209,8 +209,7 @@ let read_cd filename ic cd_entries cd_offset =
 
 (* Open a ZIP file for reading *)
 
-let open_in filename =
-  let ic = Pervasives.open_in_bin filename in
+let open_in_internal filename ic =
   let (cd_entries, cd_offset, cd_comment) = read_ecd filename ic in
   let entries = read_cd filename ic cd_entries cd_offset in
   let dir = Hashtbl.create (cd_entries / 3) in
@@ -220,6 +219,11 @@ let open_in filename =
     if_entries = entries;
     if_directory = dir;
     if_comment = cd_comment }
+
+let open_in filename =
+  open_in_internal filename (Pervasives.open_in_bin filename)
+let open_in_channel ic =
+  open_in_internal "" ic
 
 (* Close a ZIP file opened for reading *)
 
@@ -355,13 +359,18 @@ let copy_entry_to_file ifile e outfilename =
 
 (* Open a ZIP file for writing *)
 
-let open_out ?(comment = "") filename =
+let open_out_internal ?(comment = "") filename oc =
   if String.length comment >= 0x10000 then
     raise(Error(filename, "", "comment too long"));
   { of_filename = filename;
-    of_channel = Pervasives.open_out_bin filename;
+    of_channel = oc;
     of_entries = [];
     of_comment = comment }
+
+let open_out ?comment filename =
+  open_out_internal ?comment filename (Pervasives.open_out_bin filename)
+let open_out_channel ?comment oc =
+  open_out_internal ?comment "" oc
 
 (* Close a ZIP file for writing.  Add central directory. *)
 
