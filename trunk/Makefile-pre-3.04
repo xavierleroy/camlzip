@@ -18,26 +18,25 @@ INSTALLDIR=`$(OCAMLC) -where`/zip
 OCAMLC=ocamlc -g
 OCAMLOPT=ocamlopt
 OCAMLDEP=ocamldep
-OCAMLMKLIB=ocamlmklib
 
 OBJS=zlib.cmo zip.cmo gzip.cmo
 C_OBJS=zlibstubs.o
 
-all: libcamlzip.a zip.cma
+all: zip.cma
 
-allopt: libcamlzip.a zip.cmxa
+allopt: zip.cmxa
 
-zip.cma: $(OBJS)
-	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS) \
-            -L$(ZLIB_LIBDIR) $(ZLIB_LIB)
+zip.cma: $(OBJS) libcamlzip.a
+	$(OCAMLC) -a -o zip.cma -custom $(OBJS) \
+                -cclib -lcamlzip -ccopt -L$(ZLIB_LIBDIR) -cclib $(ZLIB_LIB)
 
-zip.cmxa: $(OBJS:.cmo=.cmx)
-	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS:.cmo=.cmx) \
-            -L$(ZLIB_LIBDIR) $(ZLIB_LIB)
+zip.cmxa: $(OBJS:.cmo=.cmx) libcamlzip.a
+	$(OCAMLOPT) -a -o zip.cmxa $(OBJS:.cmo=.cmx) \
+                -cclib -lcamlzip -ccopt -L$(ZLIB_LIBDIR) -cclib $(ZLIB_LIB)
 
 libcamlzip.a: $(C_OBJS)
-	$(OCAMLMKLIB) -oc camlzip $(C_OBJS) \
-            -L$(ZLIB_LIBDIR) $(ZLIB_LIB)
+	rm -f libcamlzip.a
+	ar rc libcamlzip.a $(C_OBJS)
 
 .SUFFIXES: .mli .ml .cmo .cmi .cmx
 
@@ -57,13 +56,6 @@ clean:
 install:
 	mkdir -p $(INSTALLDIR)
 	cp zip.cma zip.cmi gzip.cmi zip.mli gzip.mli libcamlzip.a $(INSTALLDIR)
-	if test -f dllcamlzip.so; then \
-	  cp dllcamlzip.so $(INSTALLDIR); \
-          ldconf=`$(OCAMLC) -where`/ld.conf; \
-          installdir=$(INSTALLDIR); \
-          if test `grep -s -c $$installdir'$$' $$ldconf || :` = 0; \
-          then echo $$installdir >> $$ldconf; fi \
-        fi
 
 installopt:
 	cp zip.cmxa zip.a zip.cmx gzip.cmx $(INSTALLDIR)
