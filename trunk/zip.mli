@@ -6,7 +6,8 @@
 (*                                                                     *)
 (*  Copyright 2001 Institut National de Recherche en Informatique et   *)
 (*  en Automatique.  All rights reserved.  This file is distributed    *)
-(*  under the terms of the GNU Library General Public License.         *)
+(*  under the terms of the GNU Library General Public License, with    *)
+(*  the special exception on linking described in file LICENSE.        *)
 (*                                                                     *)
 (***********************************************************************)
 
@@ -44,7 +45,7 @@ type entry =
     uncompressed_size: int;    (* size of original data in bytes *)
     compressed_size: int;      (* size of compressed data *)
     is_directory: bool;        (* whether this entry represents a directory *)
-    file_offset: int }         (* for internal use *)
+    file_offset: int64 }         (* for internal use *)
           (* Description of an entry in a ZIP file. *)
 
 (*** Reading from ZIP files *)
