@@ -44,11 +44,11 @@ The directory test/ contains examples of using this library.
 
 LICENSING:
 
-This library is copyright 2001, 2002, 2006 Institut National de Recherche
-en Informatique et en Automatique, and distributed under the terms
-of the GNU Library General Public License (LGPL) with a special exception
-concerning static linking.  See the file LICENSE for the exact 
-licensing terms.
+This library is copyright 2001, 2002, 2006, 2007 Institut National de
+Recherche en Informatique et en Automatique, and distributed under the
+terms of the GNU Library General Public License (LGPL) with a special
+exception concerning static linking.  See the file LICENSE for the
+exact licensing terms.
 
 BUG REPORTS AND USER FEEDBACK:
 
