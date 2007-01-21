@@ -1,3 +1,7 @@
+Release 1.03:
+- Fixed bug in Zlib.uncompress that could cause it to loop infinitely.
+- Documentation comments in .mli files converted to ocamldoc format.
+
 Release 1.02:
 - 64-bit incompatibility fixed.
 - Better support for large ZIP files (> 2 Gb).
