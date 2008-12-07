@@ -1,3 +1,18 @@
+(***********************************************************************)
+(*                                                                     *)
+(*                         The CamlZip library                         *)
+(*                                                                     *)
+(*            Xavier Leroy, projet Cristal, INRIA Rocquencourt         *)
+(*                                                                     *)
+(*  Copyright 2001 Institut National de Recherche en Informatique et   *)
+(*  en Automatique.  All rights reserved.  This file is distributed    *)
+(*  under the terms of the GNU Lesser General Public License, with     *)
+(*  the special exception on linking described in file LICENSE.        *)
+(*                                                                     *)
+(***********************************************************************)
+
+(* $Id$ *)
+
 exception Error of string * string
 
 let _ =
@@ -53,6 +68,24 @@ let compress ?(level = 6) ?(header = true) refill flush =
     compr 0 0;
     deflate_end zs
 
+let compress_direct  ?(level = 6) ?(header = true) flush =
+  let outbuf = String.create buffer_size in
+  let zs = deflate_init level header in
+  let rec compr inbuf inpos inavail =
+    if inavail = 0 then ()
+    else begin
+      let (_, used_in, used_out) =
+        deflate zs inbuf inpos inavail outbuf 0 buffer_size Z_NO_FLUSH in
+      flush outbuf used_out;
+      compr inbuf (inpos + used_in) (inavail - used_in)
+    end
+  and compr_finish () =
+    let (finished, _, used_out) =
+      deflate zs "" 0 0 outbuf 0 buffer_size Z_FINISH in
+    flush outbuf used_out;
+    if not finished then compr_finish()
+  in
+  compr, compr_finish
 
 let uncompress ?(header = true) refill flush =
   let inbuf = String.create buffer_size

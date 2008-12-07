@@ -6,7 +6,7 @@
 (*                                                                     *)
 (*  Copyright 2001 Institut National de Recherche en Informatique et   *)
 (*  en Automatique.  All rights reserved.  This file is distributed    *)
-(*  under the terms of the GNU Library General Public License, with    *)
+(*  under the terms of the GNU Lesser General Public License, with     *)
 (*  the special exception on linking described in file LICENSE.        *)
 (*                                                                     *)
 (***********************************************************************)
@@ -482,7 +482,7 @@ let add_entry data ofile ?(extra = "") ?(comment = "")
         let in_pos = ref 0 in
         let out_pos = ref 0 in
         try
-          Zlib.compress ~header:false
+          Zlib.compress ~level ~header:false
             (fun buf ->
                let n = min (String.length data - !in_pos)
                            (String.length buf) in
@@ -521,7 +521,7 @@ let copy_channel_to_entry ic ofile ?(extra = "") ?(comment = "")
         let in_pos = ref 0 in
         let out_pos = ref 0 in
         try
-          Zlib.compress ~header:false
+          Zlib.compress ~level ~header:false
             (fun buf ->
                let r = input ic buf 0 (String.length buf) in
                crc := Zlib.update_crc !crc buf 0 r;
@@ -554,3 +554,56 @@ let copy_file_to_entry infilename ofile ?(extra = "") ?(comment = "")
     Pervasives.close_in ic; raise x
 
 
+(* Add an entry whose content will be produced by the caller *)
+
+let add_entry_generator ofile ?(extra = "") ?(comment = "")
+                         ?(level = 6) ?(mtime = Unix.time()) name =
+  let e = add_entry_header ofile extra comment level mtime name in
+  let crc = ref Int32.zero in
+  let compr_size = ref 0 in
+  let uncompr_size = ref 0 in
+  let finished = ref false in
+  let check () =
+    if !finished then
+      raise (Error(ofile.of_filename, name, "entry already finished"))
+  in
+  let finish () =
+    finished := true;
+    let e' = add_data_descriptor ofile !crc !compr_size !uncompr_size e in
+    ofile.of_entries <- e' :: ofile.of_entries
+  in
+  match level with
+  | 0 ->
+      (fun buf pos len ->
+        check ();
+        output ofile.of_channel buf pos len;
+        compr_size := !compr_size + len;
+        uncompr_size := !uncompr_size + len
+      ),
+      (fun () ->
+        check ();
+        finish ()
+      )
+  | _ ->
+      let (send, flush) = Zlib.compress_direct ~level ~header:false
+          (fun buf n ->
+            output ofile.of_channel buf 0 n;
+            compr_size := !compr_size + n)
+      in
+      (fun buf pos len ->
+        check ();
+        try
+          send buf pos len;
+          uncompr_size := !uncompr_size + len;
+          crc := Zlib.update_crc !crc buf pos len
+        with Zlib.Error(_, _) ->
+          raise (Error(ofile.of_filename, name, "compression error"))
+      ),
+      (fun () ->
+        check ();
+        try
+          flush ();
+          finish ()
+        with Zlib.Error(_, _) ->
+          raise (Error(ofile.of_filename, name, "compression error"))
+      )

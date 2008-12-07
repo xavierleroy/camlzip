@@ -1,3 +1,9 @@
+Release 1.04:
+- Added function Zip.add_entry_generator.  (Contributed by A. Frisch.)
+- The "level" optional argument was sometimes not honored; fixed.
+- Relicensed under LGPL 2.1 or above, with Caml's special exception
+  for static linking.
+
 Release 1.03:
 - Fixed bug in Zlib.uncompress that could cause it to loop infinitely.
 - Documentation comments in .mli files converted to ocamldoc format.
