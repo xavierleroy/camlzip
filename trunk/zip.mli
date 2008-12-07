@@ -6,7 +6,7 @@
 (*                                                                     *)
 (*  Copyright 2001 Institut National de Recherche en Informatique et   *)
 (*  en Automatique.  All rights reserved.  This file is distributed    *)
-(*  under the terms of the GNU Library General Public License, with    *)
+(*  under the terms of the GNU Lesser General Public License, with     *)
 (*  the special exception on linking described in file LICENSE.        *)
 (*                                                                     *)
 (***********************************************************************)
@@ -143,6 +143,23 @@ val copy_file_to_entry:
               argument.  Also, the default value for the [mtime]
               optional parameter is the time of last modification of the
               file. *)
+val add_entry_generator:
+  out_file ->
+    ?extra: string -> ?comment: string -> ?level: int ->
+    ?mtime: float -> string -> (string -> int -> int -> unit) * (unit -> unit)
+          (** [Zip.add_entry_generator zf name] returns a pair of functions
+              [(add, finish)].  It adds a new entry to the 
+              ZIP file [zf].  The file name stored along with this entry
+              is [name].  Initially, no data is stored in this entry.
+              To store data in this entry, the program must repeatedly call
+              the [add] function returned by [Zip.add_entry_generator].
+              An invocation [add s ofs len] stores [len] characters of
+              string [s] starting at offset [ofs] in the ZIP entry.
+              When all the data forming the entry has been sent, the
+              program must call the [finish] function returned by
+              [Zip.add_entry_generator].  [finish] must be called exactly once.
+              The optional arguments to [Zip.add_entry_generator]
+              are as described in {!Zip.add_entry}. *)
 val close_out: out_file -> unit
           (** Finish writing the ZIP archive by adding the table of
               contents, and close it. *)

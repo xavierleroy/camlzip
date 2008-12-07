@@ -1,8 +1,27 @@
+(***********************************************************************)
+(*                                                                     *)
+(*                         The CamlZip library                         *)
+(*                                                                     *)
+(*            Xavier Leroy, projet Cristal, INRIA Rocquencourt         *)
+(*                                                                     *)
+(*  Copyright 2001 Institut National de Recherche en Informatique et   *)
+(*  en Automatique.  All rights reserved.  This file is distributed    *)
+(*  under the terms of the GNU Lesser General Public License, with     *)
+(*  the special exception on linking described in file LICENSE.        *)
+(*                                                                     *)
+(***********************************************************************)
+
+(* $Id$ *)
+
 exception Error of string * string
 
 val compress:
   ?level: int -> ?header: bool -> 
   (string -> int) -> (string -> int -> unit) -> unit
+
+val compress_direct:
+  ?level: int -> ?header: bool -> (string -> int -> unit) ->
+  (string -> int -> int -> unit) * (unit -> unit)
 
 val uncompress:
   ?header: bool -> (string -> int) -> (string -> int -> unit) -> unit
