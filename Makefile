@@ -68,6 +68,9 @@ install:
 installopt:
 	cp zip.cmxa zip.a zip.cmx gzip.cmx $(INSTALLDIR)
 
+install-findlib:
+	ocamlfind install zip META *.mli *.a *.cmi *.cma $(wildcard *.cmxa) $(wildcard *.so)
+
 depend:
 	gcc -MM -I$(ZLIB_INCLUDE) *.c > .depend
 	ocamldep *.mli *.ml >> .depend

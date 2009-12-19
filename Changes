@@ -1,3 +1,5 @@
+- Added support for findlib (Contributed by E. Friendly)
+
 Release 1.04:
 - Added function Zip.add_entry_generator.  (Contributed by A. Frisch.)
 - The "level" optional argument was sometimes not honored; fixed.
