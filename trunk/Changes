@@ -1,5 +1,4 @@
-Release 1.05:
-- Added oasis build system (Contributed by H. Carty.)
+- Added support for findlib (Contributed by E. Friendly)
 
 Release 1.04:
 - Added function Zip.add_entry_generator.  (Contributed by A. Frisch.)
