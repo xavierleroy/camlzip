@@ -30,7 +30,10 @@ INSTALLATION:
 - Become super-user if necessary and do
          make install
          make installopt        # if you did "make allopt" earlier
+     or  make install-findlib   # to install using ocamlfind
   This installs the library in the standard Objective Caml library directory.
+
+
 
 DOCUMENTATION:
 
