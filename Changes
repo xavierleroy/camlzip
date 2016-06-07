@@ -1,3 +1,5 @@
+- Update for OCaml 4.03
+
 Release 1.05:
 - Added support for findlib (Contributed by E. Friendly)
 
