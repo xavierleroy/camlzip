@@ -201,18 +201,21 @@ let rec output oz buf pos len =
     oz.out_pos <- 0;
     oz.out_avail <- String.length oz.out_buffer
   end;
-  let (_, used_in, used_out) =
-    try
-      Zlib.deflate oz.out_stream buf pos len
-                                 oz.out_buffer oz.out_pos oz.out_avail
-                                 Zlib.Z_NO_FLUSH
-    with Zlib.Error(_, _) ->
-      raise (Error("error during compression")) in
-  oz.out_pos <- oz.out_pos + used_out;
-  oz.out_avail <- oz.out_avail - used_out;
-  oz.out_size <- Int32.add oz.out_size (Int32.of_int used_in);
-  oz.out_crc <- Zlib.update_crc oz.out_crc buf pos used_in;
-  if used_in < len then output oz buf (pos + used_in) (len - used_in)
+  (* Patch request #1428: Zlib disallows zero-length writes *)
+  if len > 0 then begin
+    let (_, used_in, used_out) =
+      try
+        Zlib.deflate oz.out_stream buf pos len
+                                   oz.out_buffer oz.out_pos oz.out_avail
+                                   Zlib.Z_NO_FLUSH
+      with Zlib.Error(_, _) ->
+        raise (Error("error during compression")) in
+    oz.out_pos <- oz.out_pos + used_out;
+    oz.out_avail <- oz.out_avail - used_out;
+    oz.out_size <- Int32.add oz.out_size (Int32.of_int used_in);
+    oz.out_crc <- Zlib.update_crc oz.out_crc buf pos used_in;
+    if used_in < len then output oz buf (pos + used_in) (len - used_in)
+  end
 
 let output_char oz c =
   char_buffer.[0] <- c;

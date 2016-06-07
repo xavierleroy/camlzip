@@ -1,4 +1,5 @@
 - Update for OCaml 4.03
+- Avoid Zlib error when calling Gzip.output with length = 0
 
 Release 1.05:
 - Added support for findlib (Contributed by E. Friendly)
