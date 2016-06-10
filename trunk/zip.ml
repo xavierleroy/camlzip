@@ -116,29 +116,31 @@ let dostime_of_unixtime t =
 
 let read_ecd filename ic =
   let buf = String.create 256 in
-  let filelen = in_channel_length ic in
+  let filelen = LargeFile.in_channel_length ic in
   let rec find_ecd pos len =
     (* On input, bytes 0 ... len - 1 of buf reflect what is at pos in ic *)
-    if pos <= 0 || filelen - pos >= 0x10000 then
+    if pos <= 0L || Int64.sub filelen pos >= 0x10000L then
       raise (Error(filename, "",
                    "end of central directory not found, not a ZIP file"));
-    let toread = min pos 128 in
+    let toread = if pos >= 128L then 128 else Int64.to_int pos in
     (* Make room for "toread" extra bytes, and read them *)
     String.blit buf 0 buf toread (256 - toread);
-    let newpos = pos - toread in
-    seek_in ic newpos;
+    let newpos = Int64.(sub pos (of_int toread)) in
+    Printf.printf "newpos = %Ld\n" newpos;
+    LargeFile.seek_in ic newpos;
     really_input ic buf 0 toread;
     let newlen = min (toread + len) 256 in
+    Printf.printf "newlen = %d\n" newlen;
     (* Search for magic number *)
     let ofs = strrstr "PK\005\006" buf 0 newlen in
     if ofs < 0 || newlen < 22 || 
        (let comment_len = 
           Char.code buf.[ofs + 20] lor (Char.code buf.[ofs + 21] lsl 8) in
-        newpos + ofs + 22 + comment_len <> filelen) then
+        Int64.(add newpos (of_int (ofs + 22 + comment_len))) <> filelen) then
       find_ecd newpos newlen
     else
-      newpos + ofs in
-  seek_in ic (find_ecd filelen 0);
+      Int64.(add newpos (of_int ofs)) in
+  LargeFile.seek_in ic (find_ecd filelen 0);
   let magic = read4 ic in
   let disk_no = read2 ic in
   let cd_disk_no = read2 ic in
@@ -155,10 +157,13 @@ let read_ecd filename ic =
 
 (* Read central directory *)
 
+let int64_of_uint32 n =
+  Int64.(logand (of_int32 n) 0xFFFF_FFFFL)
+
 let read_cd filename ic cd_entries cd_offset cd_bound =
-  let cd_bound = Int64.of_int32 cd_bound in
+  let cd_bound = int64_of_uint32 cd_bound in
   try
-    LargeFile.seek_in ic (Int64.of_int32 cd_offset);
+    LargeFile.seek_in ic (int64_of_uint32 cd_offset);
     let e = ref [] in
     let entrycnt = ref 0 in
     while (LargeFile.pos_in ic < cd_bound) do
@@ -179,7 +184,7 @@ let read_cd filename ic cd_entries cd_offset cd_bound =
       let _disk_number = read2 ic in
       let _internal_attr = read2 ic in
       let _external_attr = read4 ic in
-      let header_offset = Int64.of_int32(read4 ic) in
+      let header_offset = int64_of_uint32 (read4 ic) in
       let name = readstring ic name_len in
       let extra = readstring ic extra_len in
       let comment = readstring ic comment_len in
