@@ -4,10 +4,12 @@
 ZLIB_LIB=-lz
 
 # The directory containing the Zlib library (libz.a or libz.so)
-ZLIB_LIBDIR=/usr/local/lib
+ZLIB_LIBDIR=/usr/lib
+# ZLIB_LIBDIR=/usr/local/lib
 
 # The directory containing the Zlib header file (zlib.h)
-ZLIB_INCLUDE=/usr/local/include
+ZLIB_INCLUDE=/usr/include
+# ZLIB_INCLUDE=/usr/local/include
 
 # Where to install the library.  By default: sub-directory 'zip' of
 # OCaml's standard library directory.
@@ -16,7 +18,7 @@ INSTALLDIR=`$(OCAMLC) -where`/zip
 ### End of configuration section
 
 OCAMLC=ocamlc -g -safe-string
-OCAMLOPT=ocamlopt
+OCAMLOPT=ocamlopt -safe-string
 OCAMLDEP=ocamldep
 OCAMLMKLIB=ocamlmklib
 
