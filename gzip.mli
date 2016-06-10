@@ -36,7 +36,7 @@ val input_byte: in_channel -> int
        (** Same as [Gzip.input_char], but return the 8-bit integer
            representing the character.
            Raise [End_of_file] if no more compressed data is available. *)
-val input: in_channel -> string -> int -> int -> int
+val input: in_channel -> bytes -> int -> int -> int
        (** [input ic buf pos len] uncompresses up to [len] characters
            from the given channel [ic],
            storing them in string [buf], starting at character number [pos].
@@ -52,7 +52,7 @@ val input: in_channel -> string -> int -> int -> int
            exactly [len] characters.)
            Exception [Invalid_argument "Gzip.input"] is raised if
            [pos] and [len] do not designate a valid substring of [buf]. *)
-val really_input: in_channel -> string -> int -> int -> unit
+val really_input: in_channel -> bytes -> int -> int -> unit
        (** [really_input ic buf pos len] uncompresses [len] characters
            from the given channel, storing them in
            string [buf], starting at character number [pos].
@@ -96,12 +96,16 @@ val output_char: out_channel -> char -> unit
 val output_byte: out_channel -> int -> unit
        (** Same as [Gzip.output_char], but the output character is given
            by its code.  The given integer is taken modulo 256. *)
-val output: out_channel -> string -> int -> int -> unit
+val output: out_channel -> bytes -> int -> int -> unit
        (** [output oc buf pos len] compresses and writes [len] characters
            from string [buf], starting at offset [pos], and writes the
            compressed data to the channel [oc].
            Raise [Invalid_argument "Gzip.output"] if
            [pos] and [len] do not designate a valid substring of [buf]. *)
+val output_substring: out_channel -> string -> int -> int -> unit
+       (** Same as [output], but takes a string as argument instead of
+           a byte sequence.
+          @since 1.06 *)
 val close_out: out_channel -> unit
        (** Close the given output channel.  If the channel was created with
            [Gzip.open_out_chan], the underlying regular file channel

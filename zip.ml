@@ -28,8 +28,8 @@ let read4_int ic =
   if hw > max_int lsr 16 then raise (Error("", "", "32-bit data too large"));
   lw lor (hw lsl 16)
 let readstring ic n =
-  let s = String.create n in
-  really_input ic s 0 n; s
+  let s = Bytes.create n in
+  really_input ic s 0 n; Bytes.unsafe_to_string s
 
 let write1 = output_byte
 let write2 oc n =
@@ -41,7 +41,7 @@ let write4_int oc n =
   write2 oc n;
   write2 oc (n lsr 16)
 let writestring oc s =
-  output oc s 0 (String.length s)
+  output_string oc s
 
 type compression_method = Stored | Deflated
 
@@ -73,14 +73,14 @@ type out_file =
     mutable of_entries: entry list;
     of_comment: string }
 
-(* Return the position of the last occurrence of s1 in s2, or -1 if not
-   found. *)
+(* Return the position of the last occurrence of [pattern] in [buf],
+   or -1 if not found. *)
 
-let strrstr pattern buf ofs len =
+let strrstr (pattern: string) (buf: bytes) ofs len =
   let rec search i j =
     if i < ofs then -1
     else if j >= String.length pattern then i
-    else if pattern.[j] = buf.[i + j] then search i (j+1)
+    else if String.get pattern j = Bytes.get buf (i + j) then search i (j+1)
     else search (i-1) 0
   in search (ofs + len - String.length pattern) 0
 
@@ -115,7 +115,7 @@ let dostime_of_unixtime t =
 (* Read end of central directory record *)
 
 let read_ecd filename ic =
-  let buf = String.create 256 in
+  let buf = Bytes.create 256 in
   let filelen = LargeFile.in_channel_length ic in
   let rec find_ecd pos len =
     (* On input, bytes 0 ... len - 1 of buf reflect what is at pos in ic *)
@@ -124,7 +124,7 @@ let read_ecd filename ic =
                    "end of central directory not found, not a ZIP file"));
     let toread = if pos >= 128L then 128 else Int64.to_int pos in
     (* Make room for "toread" extra bytes, and read them *)
-    String.blit buf 0 buf toread (256 - toread);
+    Bytes.blit buf 0 buf toread (256 - toread);
     let newpos = Int64.(sub pos (of_int toread)) in
     Printf.printf "newpos = %Ld\n" newpos;
     LargeFile.seek_in ic newpos;
@@ -135,7 +135,8 @@ let read_ecd filename ic =
     let ofs = strrstr "PK\005\006" buf 0 newlen in
     if ofs < 0 || newlen < 22 || 
        (let comment_len = 
-          Char.code buf.[ofs + 20] lor (Char.code buf.[ofs + 21] lsl 8) in
+              (Char.code (Bytes.get buf (ofs + 20)))
+          lor ((Char.code (Bytes.get buf (ofs + 21))) lsl 8) in
         Int64.(add newpos (of_int (ofs + 22 + comment_len))) <> filelen) then
       find_ecd newpos newlen
     else
@@ -272,14 +273,14 @@ let goto_entry ifile e =
 let read_entry ifile e =
   try
     goto_entry ifile e;
-    let res = String.create e.uncompressed_size in
+    let res = Bytes.create e.uncompressed_size in
     match e.methd with
       Stored ->
         if e.compressed_size <> e.uncompressed_size then
           raise (Error(ifile.if_filename, e.filename,
                        "wrong size for stored entry"));
         really_input ifile.if_channel res 0 e.uncompressed_size;
-        res
+        Bytes.unsafe_to_string res
     | Deflated ->
         let in_avail = ref e.compressed_size in
         let out_pos = ref 0 in
@@ -287,25 +288,25 @@ let read_entry ifile e =
           Zlib.uncompress ~header:false
             (fun buf ->
               let read = input ifile.if_channel buf 0
-                               (min !in_avail (String.length buf)) in
+                               (min !in_avail (Bytes.length buf)) in
               in_avail := !in_avail - read;
               read)
             (fun buf len ->
-              if !out_pos + len > String.length res then
+              if !out_pos + len > Bytes.length res then
                 raise (Error(ifile.if_filename, e.filename,
                              "wrong size for deflated entry (too much data)"));
-              String.blit buf 0 res !out_pos len;
+              Bytes.blit buf 0 res !out_pos len;
               out_pos := !out_pos + len)
         with Zlib.Error(_, _) ->
           raise (Error(ifile.if_filename, e.filename, "decompression error"))
         end;
-        if !out_pos <> String.length res then
+        if !out_pos <> Bytes.length res then
           raise (Error(ifile.if_filename, e.filename,
                        "wrong size for deflated entry (not enough data)"));
-        let crc = Zlib.update_crc Int32.zero res 0 (String.length res) in
+        let crc = Zlib.update_crc Int32.zero res 0 (Bytes.length res) in
         if crc <> e.crc then
           raise (Error(ifile.if_filename, e.filename, "CRC mismatch"));
-        res
+        Bytes.unsafe_to_string res
   with End_of_file ->
     raise (Error(ifile.if_filename, e.filename, "truncated data"))
     
@@ -319,10 +320,10 @@ let copy_entry_to_channel ifile e oc =
         if e.compressed_size <> e.uncompressed_size then
           raise (Error(ifile.if_filename, e.filename,
                        "wrong size for stored entry"));
-        let buf = String.create 4096 in
+        let buf = Bytes.create 4096 in
         let rec copy n =
           if n > 0 then begin
-            let r = input ifile.if_channel buf 0 (min n (String.length buf)) in
+            let r = input ifile.if_channel buf 0 (min n (Bytes.length buf)) in
             output oc buf 0 r;
             copy (n - r)
           end in
@@ -334,7 +335,7 @@ let copy_entry_to_channel ifile e oc =
           Zlib.uncompress ~header:false
             (fun buf ->
               let read = input ifile.if_channel buf 0
-                               (min !in_avail (String.length buf)) in
+                               (min !in_avail (Bytes.length buf)) in
               in_avail := !in_avail - read;
               read)
             (fun buf len ->
@@ -475,11 +476,11 @@ let add_data_descriptor ofile crc compr_size uncompr_size entry =
 let add_entry data ofile ?(extra = "") ?(comment = "") 
                          ?(level = 6) ?(mtime = Unix.time()) name =
   let e = add_entry_header ofile extra comment level mtime name in
-  let crc = Zlib.update_crc Int32.zero data 0 (String.length data) in
+  let crc = Zlib.update_crc_string Int32.zero data 0 (String.length data) in
   let compr_size =
     match level with
       0 ->
-        output ofile.of_channel data 0 (String.length data);
+        output_substring ofile.of_channel data 0 (String.length data);
         String.length data
     | _ ->
         let in_pos = ref 0 in
@@ -488,7 +489,7 @@ let add_entry data ofile ?(extra = "") ?(comment = "")
           Zlib.compress ~level ~header:false
             (fun buf ->
                let n = min (String.length data - !in_pos)
-                           (String.length buf) in
+                           (Bytes.length buf) in
                String.blit data !in_pos buf 0 n;
                in_pos := !in_pos + n;
                n)
@@ -510,9 +511,9 @@ let copy_channel_to_entry ic ofile ?(extra = "") ?(comment = "")
   let (compr_size, uncompr_size) =
     match level with
       0 ->
-        let buf = String.create 4096 in
+        let buf = Bytes.create 4096 in
         let rec copy sz =
-          let r = input ic buf 0 (String.length buf) in
+          let r = input ic buf 0 (Bytes.length buf) in
           if r = 0 then sz else begin
             crc := Zlib.update_crc !crc buf 0 r;
             output ofile.of_channel buf 0 r;
@@ -526,7 +527,7 @@ let copy_channel_to_entry ic ofile ?(extra = "") ?(comment = "")
         try
           Zlib.compress ~level ~header:false
             (fun buf ->
-               let r = input ic buf 0 (String.length buf) in
+               let r = input ic buf 0 (Bytes.length buf) in
                crc := Zlib.update_crc !crc buf 0 r;
                in_pos := !in_pos + r;
                r)

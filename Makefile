@@ -15,7 +15,7 @@ INSTALLDIR=`$(OCAMLC) -where`/zip
 
 ### End of configuration section
 
-OCAMLC=ocamlc -g
+OCAMLC=ocamlc -g -safe-string
 OCAMLOPT=ocamlopt
 OCAMLDEP=ocamldep
 OCAMLMKLIB=ocamlmklib
@@ -52,7 +52,7 @@ libcamlzip.a: $(C_OBJS)
 
 clean:
 	rm -f *.cm*
-	rm -f *.o *.a
+	rm -f *.o *.a *.so
 
 install:
 	mkdir -p $(INSTALLDIR)
