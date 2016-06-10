@@ -126,11 +126,9 @@ let read_ecd filename ic =
     (* Make room for "toread" extra bytes, and read them *)
     Bytes.blit buf 0 buf toread (256 - toread);
     let newpos = Int64.(sub pos (of_int toread)) in
-    Printf.printf "newpos = %Ld\n" newpos;
     LargeFile.seek_in ic newpos;
     really_input ic buf 0 toread;
     let newlen = min (toread + len) 256 in
-    Printf.printf "newlen = %d\n" newlen;
     (* Search for magic number *)
     let ofs = strrstr "PK\005\006" buf 0 newlen in
     if ofs < 0 || newlen < 22 || 
