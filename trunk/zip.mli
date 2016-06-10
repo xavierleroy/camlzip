@@ -146,7 +146,7 @@ val copy_file_to_entry:
 val add_entry_generator:
   out_file ->
     ?extra: string -> ?comment: string -> ?level: int ->
-    ?mtime: float -> string -> (string -> int -> int -> unit) * (unit -> unit)
+    ?mtime: float -> string -> (bytes -> int -> int -> unit) * (unit -> unit)
           (** [Zip.add_entry_generator zf name] returns a pair of functions
               [(add, finish)].  It adds a new entry to the 
               ZIP file [zf].  The file name stored along with this entry
@@ -154,7 +154,7 @@ val add_entry_generator:
               To store data in this entry, the program must repeatedly call
               the [add] function returned by [Zip.add_entry_generator].
               An invocation [add s ofs len] stores [len] characters of
-              string [s] starting at offset [ofs] in the ZIP entry.
+              byte sequence [s] starting at offset [ofs] in the ZIP entry.
               When all the data forming the entry has been sent, the
               program must call the [finish] function returned by
               [Zip.add_entry_generator].  [finish] must be called exactly once.
