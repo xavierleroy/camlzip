@@ -1,5 +1,9 @@
-- Update for OCaml 4.03
-- Avoid Zlib error when calling Gzip.output with length = 0
+Release 1.06:
+- Switch to "safe string" mode.  Some API functions that use to take strings
+  now take byte sequences instead.  OCaml 4.02 or up is required.
+- Update for OCaml 4.03.
+- Avoid Zlib error when calling Gzip.output with length = 0.
+- Improve support for ZIP files / ZIP file members greater than 2 Gbytes.
 
 Release 1.05:
 - Added support for findlib (Contributed by E. Friendly)
