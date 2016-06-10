@@ -15,6 +15,7 @@
 
 /* Stub code to interface with Zlib */
 
+#include <stdint.h>
 #include <zlib.h>
 
 #include <caml/mlvalues.h>
