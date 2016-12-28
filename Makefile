@@ -25,9 +25,15 @@ OCAMLMKLIB=ocamlmklib
 OBJS=zlib.cmo zip.cmo gzip.cmo
 C_OBJS=zlibstubs.o
 
+NATDYNLINK := $(shell if [ -f `ocamlc -where`/dynlink.cmxa ]; then echo YES; else echo NO; fi)
+
+ifeq "${NATDYNLINK}" "YES"
+CMXS = zip.cmxs
+endif
+
 all: libcamlzip.a zip.cma
 
-allopt: libcamlzip.a zip.cmxa
+allopt: libcamlzip.a zip.cmxa $(CMXS)
 
 zip.cma: $(OBJS)
 	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS) \
@@ -36,6 +42,9 @@ zip.cma: $(OBJS)
 zip.cmxa: $(OBJS:.cmo=.cmx)
 	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS:.cmo=.cmx) \
             -L$(ZLIB_LIBDIR) $(ZLIB_LIB)
+
+zip.cmxs: zip.cmxa
+	$(OCAMLOPT) -shared -linkall -I ./ -o $@ $^
 
 libcamlzip.a: $(C_OBJS)
 	$(OCAMLMKLIB) -oc camlzip $(C_OBJS) \
@@ -58,7 +67,7 @@ clean:
 
 install:
 	mkdir -p $(INSTALLDIR)
-	cp zip.cma zip.cmi gzip.cmi zip.mli gzip.mli libcamlzip.a $(INSTALLDIR)
+	cp zip.cma zip.cmi gzip.cmi zlib.cmi zip.mli gzip.mli zlib.mli libcamlzip.a $(INSTALLDIR)
 	if test -f dllcamlzip.so; then \
 	  cp dllcamlzip.so $(INSTALLDIR); \
           ldconf=`$(OCAMLC) -where`/ld.conf; \
@@ -68,10 +77,15 @@ install:
         fi
 
 installopt:
-	cp zip.cmxa zip.a zip.cmx gzip.cmx $(INSTALLDIR)
+	cp zip.cmxa $(CMXS) zip.a zip.cmx gzip.cmx zlib.cmx $(INSTALLDIR)
 
 install-findlib:
-	ocamlfind install zip META *.mli *.a *.cmi *.cma $(wildcard *.cmxa) $(wildcard *.so)
+	cp META-zip META && \
+        ocamlfind install zip META *.mli *.a *.cmi *.cma $(wildcard *.cmx) $(wildcard *.cmxa) $(wildcard *.cmxs) $(wildcard *.so) && \
+        rm META
+	cp META-camlzip META && \
+        ocamlfind install camlzip META && \
+        rm META
 
 depend:
 	gcc -MM -I$(ZLIB_INCLUDE) *.c > .depend

@@ -1,3 +1,8 @@
+- Compile and install the shared library zip.cmxs
+  (Contributed by E. Millon.)
+- ocamlfind: install under 'zip' and 'camlzip' package names
+  (This is what the OPAM package does.)
+
 Release 1.06:
 - Switch to "safe string" mode.  Some API functions that use to take strings
   now take byte sequences instead.  OCaml 4.02 or up is required.
