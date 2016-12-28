@@ -4,11 +4,13 @@
 ZLIB_LIB=-lz
 
 # The directory containing the Zlib library (libz.a or libz.so)
-ZLIB_LIBDIR=/usr/lib
+# Leave empty if libz is in a standard linker directory
+ZLIB_LIBDIR=
 # ZLIB_LIBDIR=/usr/local/lib
 
 # The directory containing the Zlib header file (zlib.h)
-ZLIB_INCLUDE=/usr/include
+# Leave empty if zlib.h is in a standard compiler directory
+ZLIB_INCLUDE=
 # ZLIB_INCLUDE=/usr/local/include
 
 # Where to install the library.  By default: sub-directory 'zip' of
@@ -31,24 +33,27 @@ ifeq "${NATDYNLINK}" "YES"
 CMXS = zip.cmxs
 endif
 
+ZLIB_L_OPT=$(if $(ZLIB_LIBDIR),-L$(ZLIB_LIBDIR)) 
+ZLIB_I_OPT=$(if $(ZLIB_INCLUDE),-ccopt -I$(ZLIB_INCLUDE)) 
+
 all: libcamlzip.a zip.cma
 
 allopt: libcamlzip.a zip.cmxa $(CMXS)
 
 zip.cma: $(OBJS)
 	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS) \
-            -L$(ZLIB_LIBDIR) $(ZLIB_LIB)
+            $(ZLIB_L_OPT) $(ZLIB_LIB)
 
 zip.cmxa: $(OBJS:.cmo=.cmx)
 	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS:.cmo=.cmx) \
-            -L$(ZLIB_LIBDIR) $(ZLIB_LIB)
+            $(ZLIB_L_OPT) $(ZLIB_LIB)
 
 zip.cmxs: zip.cmxa
 	$(OCAMLOPT) -shared -linkall -I ./ -o $@ $^
 
 libcamlzip.a: $(C_OBJS)
 	$(OCAMLMKLIB) -oc camlzip $(C_OBJS) \
-            -L$(ZLIB_LIBDIR) $(ZLIB_LIB)
+            $(ZLIB_L_OPT) $(ZLIB_LIB)
 
 .SUFFIXES: .mli .ml .cmo .cmi .cmx
 
@@ -59,7 +64,7 @@ libcamlzip.a: $(C_OBJS)
 .ml.cmx:
 	$(OCAMLOPT) -c $<
 .c.o:
-	$(OCAMLC) -c -ccopt -g -ccopt -I$(ZLIB_INCLUDE) $<
+	$(OCAMLC) -c -ccopt -g $(ZLIB_I_OPT) $<
 
 clean:
 	rm -f *.cm*
@@ -88,7 +93,7 @@ install-findlib:
         rm META
 
 depend:
-	gcc -MM -I$(ZLIB_INCLUDE) *.c > .depend
+	gcc -MM $(ZLIB_I_OPT) *.c > .depend
 	ocamldep *.mli *.ml >> .depend
 
 include .depend
