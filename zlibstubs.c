@@ -52,7 +52,6 @@ static void camlzip_error(char * fn, value vzs)
   caml_raise(bucket);
 }
 
-#include <stdio.h>
 void camlzip_free_stream(value vzs)
 {
   free(ZStream_val(vzs));
