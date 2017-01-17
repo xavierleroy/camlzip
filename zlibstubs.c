@@ -23,8 +23,9 @@
 #include <caml/callback.h>
 #include <caml/fail.h>
 #include <caml/memory.h>
+#include <caml/custom.h>
 
-#define ZStream_val(v) ((z_stream *) (v))
+#define ZStream_val(v) (*((z_streamp *)Data_custom_val(v)))
 
 static value * camlzip_error_exn = NULL;
 
@@ -51,10 +52,22 @@ static void camlzip_error(char * fn, value vzs)
   caml_raise(bucket);
 }
 
+#include <stdio.h>
+void camlzip_free_stream(value vzs)
+{
+  free(ZStream_val(vzs));
+  ZStream_val(vzs) = NULL;
+}
+
+static struct custom_operations camlzip_stream_ops = {
+  "camlzip_stream_ops", &camlzip_free_stream, NULL, NULL, NULL, NULL
+};
+
 static value camlzip_new_stream(void)
 {
-  value res = caml_alloc((sizeof(z_stream) + sizeof(value) - 1) / sizeof(value),
-                    Abstract_tag);
+  value res = caml_alloc_custom(&camlzip_stream_ops, sizeof(z_streamp), 0, 1);
+
+  ZStream_val(res) = malloc(sizeof(z_stream));
   ZStream_val(res)->zalloc = NULL;
   ZStream_val(res)->zfree = NULL;
   ZStream_val(res)->opaque = NULL;
