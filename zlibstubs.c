@@ -54,7 +54,7 @@ static void camlzip_error(char * fn, value vzs)
 
 void camlzip_free_stream(value vzs)
 {
-  free(ZStream_val(vzs));
+  caml_stat_free(ZStream_val(vzs));
   ZStream_val(vzs) = NULL;
 }
 
@@ -66,7 +66,7 @@ static value camlzip_new_stream(void)
 {
   value res = caml_alloc_custom(&camlzip_stream_ops, sizeof(z_streamp), 0, 1);
 
-  ZStream_val(res) = malloc(sizeof(z_stream));
+  ZStream_val(res) = caml_stat_alloc(sizeof(z_stream));
   ZStream_val(res)->zalloc = NULL;
   ZStream_val(res)->zfree = NULL;
   ZStream_val(res)->opaque = NULL;

@@ -1,7 +1,11 @@
+Release 1.07:
+- Allocate Zlib data structures outside the OCaml heap for compatibility
+  with recent versions of Zlib
+  (Github issue #1, pull request #2, report and fix by Einar Lielmanis).
 - Don't pass -L and -I options to the C compiler unless necessary.
-- Compile and install the shared library zip.cmxs
+- Compile and install the shared library zip.cmxs.
   (Contributed by E. Millon.)
-- ocamlfind: install under 'zip' and 'camlzip' package names
+- ocamlfind: install under 'zip' and 'camlzip' package names.
   (This is what the OPAM package does.)
 
 Release 1.06:
