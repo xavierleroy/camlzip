@@ -69,6 +69,7 @@ libcamlzip.a: $(C_OBJS)
 clean:
 	rm -f *.cm*
 	rm -f *.o *.a *.so
+	rm -rf doc/
 
 install:
 	mkdir -p $(INSTALLDIR)
@@ -97,3 +98,7 @@ depend:
 	ocamldep *.mli *.ml >> .depend
 
 include .depend
+
+doc: *.mli
+	mkdir -p doc
+	ocamldoc -d doc/ -html *.mli
