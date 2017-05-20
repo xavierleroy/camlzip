@@ -1,3 +1,5 @@
+- Improve Mingw support in Makefile (install .dll files) [Bertrand Jeannet]
+
 Release 1.07:
 - Allocate Zlib data structures outside the OCaml heap for compatibility
   with recent versions of Zlib

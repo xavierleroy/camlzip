@@ -73,8 +73,8 @@ clean:
 install:
 	mkdir -p $(INSTALLDIR)
 	cp zip.cma zip.cmi gzip.cmi zlib.cmi zip.mli gzip.mli zlib.mli libcamlzip.a $(INSTALLDIR)
-	if test -f dllcamlzip.so; then \
-	  cp dllcamlzip.so $(INSTALLDIR); \
+	if test -f dllcamlzip.so || test -f dllcamlzip.dll; then \
+	  cp $(wildcard *.so) $(wildcard *.dll) $(INSTALLDIR); \
           ldconf=`$(OCAMLC) -where`/ld.conf; \
           installdir=$(INSTALLDIR); \
           if test `grep -s -c $$installdir'$$' $$ldconf || :` = 0; \
@@ -86,7 +86,7 @@ installopt:
 
 install-findlib:
 	cp META-zip META && \
-        ocamlfind install zip META *.mli *.a *.cmi *.cma $(wildcard *.cmx) $(wildcard *.cmxa) $(wildcard *.cmxs) $(wildcard *.so) && \
+        ocamlfind install zip META *.mli *.a *.cmi *.cma $(wildcard *.cmx) $(wildcard *.cmxa) $(wildcard *.cmxs) $(wildcard *.so) $(wildcard *.dll) && \
         rm META
 	cp META-camlzip META && \
         ocamlfind install camlzip META && \
