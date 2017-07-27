@@ -24,6 +24,7 @@
 #include <caml/fail.h>
 #include <caml/memory.h>
 #include <caml/custom.h>
+#include <caml/bigarray.h>
 
 #define ZStream_val(v) (*((z_streamp *)Data_custom_val(v)))
 
@@ -117,10 +118,45 @@ value camlzip_deflate(value vzs, value srcbuf, value srcpos, value srclen,
   return res;
 }
 
+value camlzip_deflate_bigstring(value vzs, value srcbuf, value srcpos, value srclen,
+                                value dstbuf, value dstpos, value dstlen,
+                                value vflush)
+{
+  z_stream * zs = ZStream_val(vzs);
+  int retcode;
+  long used_in, used_out;
+  value res;
+
+  struct caml_ba_array *ba_src = Caml_ba_array_val(srcbuf);
+  struct caml_ba_array *ba_dst = Caml_ba_array_val(dstbuf);
+
+  zs->next_in = (unsigned char *) ba_src->data + Long_val(srcpos);
+  zs->avail_in = Long_val(srclen);
+  zs->next_out = (unsigned char *) ba_dst->data + Long_val(dstpos);
+  zs->avail_out = Long_val(dstlen);
+  retcode = deflate(zs, camlzip_flush_table[Int_val(vflush)]);
+  if (retcode < 0 && retcode != Z_BUF_ERROR) camlzip_error("Zlib.deflate", vzs);
+  used_in = Long_val(srclen) - zs->avail_in;
+  used_out = Long_val(dstlen) - zs->avail_out;
+  zs->next_in = NULL;         /* not required, but cleaner */
+  zs->next_out = NULL;        /* (avoid dangling pointers into Caml heap) */
+  res = alloc_small(3, 0);
+  Field(res, 0) = Val_bool(retcode == Z_STREAM_END);
+  Field(res, 1) = Val_int(used_in);
+  Field(res, 2) = Val_int(used_out);
+  return res;
+}
+
 value camlzip_deflate_bytecode(value * arg, int nargs)
 {
   return camlzip_deflate(arg[0], arg[1], arg[2], arg[3],
                          arg[4], arg[5], arg[6], arg[7]);
+}
+
+value camlzip_deflate_bytecode_bigstring(value * arg, int nargs)
+{
+  return camlzip_deflate_bigstring(arg[0], arg[1], arg[2], arg[3],
+                                   arg[4], arg[5], arg[6], arg[7]);
 }
 
 value camlzip_deflateEnd(value vzs)
@@ -166,10 +202,46 @@ value camlzip_inflate(value vzs, value srcbuf, value srcpos, value srclen,
   return res;
 }
 
+value camlzip_inflate_bigstring(value vzs, value srcbuf, value srcpos, value srclen,
+                                value dstbuf, value dstpos, value dstlen,
+                                value vflush)
+{
+  z_stream * zs = ZStream_val(vzs);
+  int retcode;
+  long used_in, used_out;
+  value res;
+
+  struct caml_ba_array *ba_src = Caml_ba_array_val(srcbuf);
+  struct caml_ba_array *ba_dst = Caml_ba_array_val(dstbuf);
+
+  zs->next_in = (unsigned char *) ba_src->data + Long_val(srcpos);
+  zs->avail_in = Long_val(srclen);
+  zs->next_out = (unsigned char *) ba_dst->data + Long_val(dstpos);
+  zs->avail_out = Long_val(dstlen);
+  retcode = inflate(zs, camlzip_flush_table[Int_val(vflush)]);
+  if ((retcode < 0 && retcode != Z_BUF_ERROR) || retcode == Z_NEED_DICT)
+    camlzip_error("Zlib.inflate", vzs);
+  used_in = Long_val(srclen) - zs->avail_in;
+  used_out = Long_val(dstlen) - zs->avail_out;
+  zs->next_in = NULL;           /* not required, but cleaner */
+  zs->next_out = NULL;          /* (avoid dangling pointers into Caml heap) */
+  res = alloc_small(3, 0);
+  Field(res, 0) = Val_bool(retcode == Z_STREAM_END);
+  Field(res, 1) = Val_int(used_in);
+  Field(res, 2) = Val_int(used_out);
+  return res;
+}
+
 value camlzip_inflate_bytecode(value * arg, int nargs)
 {
   return camlzip_inflate(arg[0], arg[1], arg[2], arg[3],
                          arg[4], arg[5], arg[6], arg[7]);
+}
+
+value camlzip_inflate_bytecode_bigstring(value * arg, int nargs)
+{
+  return camlzip_inflate_bigstring(arg[0], arg[1], arg[2], arg[3],
+                                   arg[4], arg[5], arg[6], arg[7]);
 }
 
 value camlzip_inflateEnd(value vzs)

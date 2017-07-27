@@ -20,6 +20,8 @@ let _ =
 
 type stream
 
+type bigstring = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+
 type flush_command =
     Z_NO_FLUSH
   | Z_SYNC_FLUSH
@@ -31,6 +33,10 @@ external deflate:
   stream -> bytes -> int -> int -> bytes -> int -> int -> flush_command
          -> bool * int * int
   = "camlzip_deflate_bytecode" "camlzip_deflate"
+external deflate_bigstring:
+  stream -> bigstring -> int -> int -> bigstring -> int -> int -> flush_command
+         -> bool * int * int
+  = "camlzip_deflate_bytecode_bigstring" "camlzip_deflate_bigstring"
 external deflate_end: stream -> unit = "camlzip_deflateEnd"
 
 external inflate_init: bool -> stream = "camlzip_inflateInit"
@@ -38,6 +44,10 @@ external inflate:
   stream -> bytes -> int -> int -> bytes -> int -> int -> flush_command
          -> bool * int * int
   = "camlzip_inflate_bytecode" "camlzip_inflate"
+external inflate_bigstring:
+  stream -> bigstring -> int -> int -> bigstring -> int -> int -> flush_command
+         -> bool * int * int
+  = "camlzip_inflate_bytecode_bigstring" "camlzip_inflate_bigstring"
 external inflate_end: stream -> unit = "camlzip_inflateEnd"
 
 external update_crc: int32 -> bytes -> int -> int -> int32
