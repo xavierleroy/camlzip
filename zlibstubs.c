@@ -105,7 +105,7 @@ value camlzip_deflate(value vzs, value srcbuf, value srcpos, value srclen,
   zs->next_out = &Byte_u(dstbuf, Long_val(dstpos));
   zs->avail_out = Long_val(dstlen);
   retcode = deflate(zs, camlzip_flush_table[Int_val(vflush)]);
-  if (retcode < 0) camlzip_error("Zlib.deflate", vzs);
+  if (retcode < 0 && retcode != Z_BUF_ERROR) camlzip_error("Zlib.deflate", vzs);
   used_in = Long_val(srclen) - zs->avail_in;
   used_out = Long_val(dstlen) - zs->avail_out;
   zs->next_in = NULL;         /* not required, but cleaner */
@@ -153,7 +153,7 @@ value camlzip_inflate(value vzs, value srcbuf, value srcpos, value srclen,
   zs->next_out = &Byte_u(dstbuf, Long_val(dstpos));
   zs->avail_out = Long_val(dstlen);
   retcode = inflate(zs, camlzip_flush_table[Int_val(vflush)]);
-  if (retcode < 0 || retcode == Z_NEED_DICT)
+  if ((retcode < 0 && retcode != Z_BUF_ERROR) || retcode == Z_NEED_DICT)
     camlzip_error("Zlib.inflate", vzs);
   used_in = Long_val(srclen) - zs->avail_in;
   used_out = Long_val(dstlen) - zs->avail_out;

@@ -2,6 +2,8 @@
 - GPR#4: use ocamlfind and $(EXT_...) configuration variables for better
   cross-platform support in Makefile [user 'whitequark']
 - Improve Mingw support in Makefile (install .dll files) [Bertrand Jeannet]
+- GPR#6: Z_BUF_ERROR is not a fatal error, just a transient condition
+  [Tuukka Korhonen]
 
 Release 1.07:
 - Allocate Zlib data structures outside the OCaml heap for compatibility
