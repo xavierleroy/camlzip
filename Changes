@@ -1,3 +1,6 @@
+- ocamlfind is now mandatory as a consequence of GPR#4
+- GPR#4: use ocamlfind and $(EXT_...) configuration variables for better
+  cross-platform support in Makefile [user 'whitequark']
 - Improve Mingw support in Makefile (install .dll files) [Bertrand Jeannet]
 
 Release 1.07:
