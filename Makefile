@@ -69,6 +69,7 @@ libcamlzip$(EXT_LIB): $(C_OBJS)
 clean:
 	rm -f *.cm*
 	rm -f *.o *.a *.so
+	rm -rf doc/
 
 install:
 	cp META-zip META && \
@@ -83,3 +84,7 @@ depend:
 	$(OCAMLDEP) *.mli *.ml >> .depend
 
 include .depend
+
+doc: *.mli
+	mkdir -p doc
+	ocamldoc -d doc/ -html *.mli
