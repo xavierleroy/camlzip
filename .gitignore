@@ -1,0 +1,9 @@
+*.a
+*.cma
+*.cmi
+*.cmo
+*.o
+*.so
+
+test/minigzip
+test/minizip
