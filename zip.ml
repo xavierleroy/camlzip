@@ -217,8 +217,7 @@ let read_cd filename ic cd_entries cd_offset cd_bound =
 
 (* Open a ZIP file for reading *)
 
-let open_in filename =
-  let ic = Pervasives.open_in_bin filename in
+let open_in_channel ?(filename="") ic =
   let (cd_entries, cd_size, cd_offset, cd_comment) = read_ecd filename ic in
   let entries =
     read_cd filename ic cd_entries cd_offset (Int32.add cd_offset cd_size) in
@@ -229,6 +228,12 @@ let open_in filename =
     if_entries = entries;
     if_directory = dir;
     if_comment = cd_comment }
+
+let open_in filename =
+  let ic = Pervasives.open_in_bin filename in
+  let ifile = open_in_channel ~filename ic in
+  Pervasives.close_in ic;
+  ifile
 
 (* Close a ZIP file opened for reading *)
 
