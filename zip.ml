@@ -231,7 +231,9 @@ let open_in_channel ?(filename="") ic =
 
 let open_in filename =
   let ic = Pervasives.open_in_bin filename in
-  open_in_channel ~filename ic
+  let ifile = open_in_channel ~filename ic in
+  Pervasives.close_in ic;
+  ifile
 
 (* Close a ZIP file opened for reading *)
 
