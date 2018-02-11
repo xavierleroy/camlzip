@@ -13,10 +13,6 @@ ZLIB_LIBDIR=
 ZLIB_INCLUDE=
 # ZLIB_INCLUDE=/usr/local/include
 
-# Where to install the library.  By default: sub-directory 'zip' of
-# OCaml's standard library directory.
-INSTALLDIR=`$(OCAMLC) -where`/zip
-
 ### End of configuration section
 
 OCAMLC=ocamlfind ocamlc -g -safe-string
