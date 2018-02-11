@@ -31,11 +31,19 @@ external deflate:
   stream -> bytes -> int -> int -> bytes -> int -> int -> flush_command
          -> bool * int * int
   = "camlzip_deflate_bytecode" "camlzip_deflate"
+external deflate_string:
+  stream -> string -> int -> int -> bytes -> int -> int -> flush_command
+         -> bool * int * int
+  = "camlzip_deflate_bytecode" "camlzip_deflate"
 external deflate_end: stream -> unit = "camlzip_deflateEnd"
 
 external inflate_init: bool -> stream = "camlzip_inflateInit"
 external inflate:
   stream -> bytes -> int -> int -> bytes -> int -> int -> flush_command
+         -> bool * int * int
+  = "camlzip_inflate_bytecode" "camlzip_inflate"
+external inflate_string:
+  stream -> string -> int -> int -> bytes -> int -> int -> flush_command
          -> bool * int * int
   = "camlzip_inflate_bytecode" "camlzip_inflate"
 external inflate_end: stream -> unit = "camlzip_inflateEnd"
