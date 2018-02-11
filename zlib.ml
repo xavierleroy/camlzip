@@ -95,6 +95,7 @@ let compress_direct  ?(level = 6) ?(header = true) flush =
                  outbuf 0 buffer_size Z_FINISH in
     flush outbuf used_out;
     if not finished then compr_finish()
+    else deflate_end zs
   in
   compr, compr_finish
 
