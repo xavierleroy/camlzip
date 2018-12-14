@@ -67,6 +67,7 @@ clean:
 	rm -f *.o *.a *.so
 	rm -rf doc/
 
+install-findlib: install
 install:
 	cp META-zip META && \
         ocamlfind install zip META *.mli *.a *.cmi *.cma $(wildcard *.cmx) $(wildcard *.cmxa) $(wildcard *.cmxs) $(wildcard *$(EXT_DLL)) && \
