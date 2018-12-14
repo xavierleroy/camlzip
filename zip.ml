@@ -210,7 +210,7 @@ let read_cd filename ic cd_entries cd_offset cd_bound =
            } :: !e
     done;
     assert((cd_bound = (LargeFile.pos_in ic)) &&
-           (cd_entries = 65535 || !entrycnt = cd_entries));
+           (cd_entries = 65535 || cd_entries = !entrycnt land 0xffff));
     List.rev !e
   with End_of_file ->
     raise (Error(filename, "", "end-of-file while reading central directory"))
