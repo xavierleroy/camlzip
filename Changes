@@ -1,9 +1,19 @@
+Release 1.08:
 - ocamlfind is now mandatory as a consequence of GPR#4
 - GPR#4: use ocamlfind and $(EXT_...) configuration variables for better
   cross-platform support in Makefile [user 'whitequark']
 - Improve Mingw support in Makefile (install .dll files) [Bertrand Jeannet]
+- GPR#5: make sure 'zip' and 'camlzip' packages can be used both in the
+  same executable [Rudi Grinberg]
 - GPR#6: Z_BUF_ERROR is not a fatal error, just a transient condition
   [Tuukka Korhonen]
+- GPR#13: fix memory leak in Zlib.compress_direct [Alain Frisch]
+- GPR#14: add Zlib.deflate_string and Zlib.inflate_string, using immutable
+  strings as input buffers instead of mutable bytes [Vincent Balat]
+- GPR#16: assertion failure when reading ZIP files with 2^16 entries or more
+  [Einar Lielmanis]
+- GPR#18: in Zip.open_in, properly close channels in case of error
+  [Daniel Weil]
 
 Release 1.07:
 - Allocate Zlib data structures outside the OCaml heap for compatibility
