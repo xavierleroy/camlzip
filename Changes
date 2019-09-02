@@ -1,3 +1,6 @@
+Unreleased:
+- Add a flush_continue function to allow flushing to disk then continuing
+
 Release 1.08:
 - ocamlfind is now mandatory as a consequence of GPR#4
 - GPR#4: use ocamlfind and $(EXT_...) configuration variables for better

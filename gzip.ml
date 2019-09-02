@@ -34,7 +34,7 @@ let open_in_chan ic =
   begin try
     let id1 = input_byte ic in
     let id2 = input_byte ic in
-    if id1 <> 0x1F || id2 <> 0x8B then 
+    if id1 <> 0x1F || id2 <> 0x8B then
       raise(Error("bad magic number, not a gzip file"));
     let cm = input_byte ic in
     if cm <> 8 then
@@ -75,7 +75,7 @@ let open_in_chan ic =
 
 let open_in filename =
   let ic = Pervasives.open_in_bin filename in
-  try 
+  try
     open_in_chan ic
   with exn ->
     Pervasives.close_in ic; raise exn
@@ -128,7 +128,7 @@ let rec input iz buf pos len =
       try
         let crc = read_int32 iz in
         let size = read_int32 iz in
-        if iz.in_crc <> crc then 
+        if iz.in_crc <> crc then
           raise(Error("CRC mismatch, data corrupted"));
         if iz.in_size <> size then
           raise(Error("size mismatch, data corrupted"));
@@ -198,15 +198,16 @@ let open_out_chan ?(level = 6) oc =
 let open_out ?(level = 6) filename =
   open_out_chan ~level (Pervasives.open_out_bin filename)
 
+let flush_and_reset_out_buffer oz =
+  Pervasives.output oz.out_chan oz.out_buffer 0 oz.out_pos;
+  oz.out_pos <- 0;
+  oz.out_avail <- Bytes.length oz.out_buffer
+
 let rec output oz buf pos len =
   if pos < 0 || len < 0 || pos + len > Bytes.length buf then
     invalid_arg "Gzip.output";
   (* If output buffer is full, flush it *)
-  if oz.out_avail = 0 then begin
-    Pervasives.output oz.out_chan oz.out_buffer 0 oz.out_pos;
-    oz.out_pos <- 0;
-    oz.out_avail <- Bytes.length oz.out_buffer
-  end;
+  if oz.out_avail = 0 then flush_and_reset_out_buffer oz;
   (* Patch request #1428: Zlib disallows zero-length writes *)
   if len > 0 then begin
     let (_, used_in, used_out) =
@@ -240,14 +241,10 @@ let write_int32 oc n =
     r := Int32.shift_right_logical !r 8
   done
 
-let flush oz =
+let flush_to_out_chan oz =
   let rec do_flush () =
     (* If output buffer is full, flush it *)
-    if oz.out_avail = 0 then begin
-      Pervasives.output oz.out_chan oz.out_buffer 0 oz.out_pos;
-      oz.out_pos <- 0;
-      oz.out_avail <- Bytes.length oz.out_buffer
-    end;
+    if oz.out_avail = 0 then flush_and_reset_out_buffer oz;
     let (finished, _, used_out) =
       Zlib.deflate oz.out_stream oz.out_buffer 0 0
                                  oz.out_buffer oz.out_pos oz.out_avail
@@ -257,8 +254,16 @@ let flush oz =
     if not finished then do_flush() in
   do_flush();
   (* Final data flush *)
-  if oz.out_pos > 0 then
-    Pervasives.output oz.out_chan oz.out_buffer 0 oz.out_pos;
+  if oz.out_pos > 0 then flush_and_reset_out_buffer oz
+
+let flush_continue oz =
+  (* Flush everything to the underlying file channel, then flush the channel. *)
+  flush_to_out_chan oz;
+  Pervasives.flush oz.out_chan
+
+let flush oz =
+  (* Flush everything to the output channel. *)
+  flush_to_out_chan oz;
   (* Write CRC and size *)
   write_int32 oz.out_chan oz.out_crc;
   write_int32 oz.out_chan oz.out_size;
