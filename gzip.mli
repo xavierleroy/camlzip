@@ -119,9 +119,9 @@ val flush: out_channel -> unit
            channel.  This can be useful if e.g. the underlying file channel
            is a network socket on which more data is to be sent. *)
 val flush_continue: out_channel -> unit
-       (** Flush data data through both the compression channel and the
-           underlying regular file channel, but keep both channels open to
-           accept further data. *)
+       (** Flush all pending compressed data through both the compression
+           channel and the underlying regular file channel, but keep both
+           channels open to accept further data. *)
 
 (** {6 Error reporting} *)
 
