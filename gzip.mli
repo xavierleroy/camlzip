@@ -69,7 +69,7 @@ val dispose: in_channel -> unit
            regular file channel (of type [Pervasives.in_channel]);
            just dispose of the resources associated with the decompression
            channel.  This can be useful if e.g. the underlying file channel
-           is a network socket on which more (uncompressed) data 
+           is a network socket on which more (uncompressed) data
            is expected. *)
 
 (** {6 Writing to compressed files} *)
@@ -80,7 +80,7 @@ type out_channel
 val open_out: ?level:int -> string -> out_channel
        (** Open a compressed file for writing.  The argument is the file
            name.  The file is created if it does not exist, or
-           truncated to zero length if it exists. 
+           truncated to zero length if it exists.
            The optional [level] argument (an integer between 1 and 9)
            indicates the compression level, with 1 being the weakest
            (but fastest) compression and 9 being the strongest
@@ -118,6 +118,10 @@ val flush: out_channel -> unit
            dispose of the resources associated with the compression
            channel.  This can be useful if e.g. the underlying file channel
            is a network socket on which more data is to be sent. *)
+val flush_continue: out_channel -> unit
+       (** Flush all pending compressed data through both the compression
+           channel and the underlying regular file channel, but keep both
+           channels open to accept further data. *)
 
 (** {6 Error reporting} *)
 
