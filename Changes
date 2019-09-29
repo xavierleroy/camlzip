@@ -1,5 +1,7 @@
-Unreleased:
-- Add a flush_continue function to allow flushing to disk then continuing
+Release 1.09:
+- GPR#22: Add a Gzip.flush_continue function that allows the user to
+  flush the contents of the zip buffer all the way to disk but then
+  continue writing to the zipped channel  [James Owen]
 
 Release 1.08:
 - ocamlfind is now mandatory as a consequence of GPR#4
