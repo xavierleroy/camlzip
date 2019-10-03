@@ -18,7 +18,7 @@
    This module provides functions to read and write compressed data
    to/from files in [gzip] format. *)
 
-(** {6 Reading from compressed files} *)
+(** {1 Reading from compressed files} *)
 
 type in_channel
        (** Abstract type representing a channel opened for reading
@@ -72,7 +72,7 @@ val dispose: in_channel -> unit
            is a network socket on which more (uncompressed) data
            is expected. *)
 
-(** {6 Writing to compressed files} *)
+(** {1 Writing to compressed files} *)
 
 type out_channel
        (** Abstract type representing a channel opened for writing
@@ -123,7 +123,7 @@ val flush_continue: out_channel -> unit
            channel and the underlying regular file channel, but keep both
            channels open to accept further data. *)
 
-(** {6 Error reporting} *)
+(** {1 Error reporting} *)
 
 exception Error of string
        (** Exception raised by the functions above to signal errors during

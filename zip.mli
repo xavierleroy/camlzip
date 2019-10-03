@@ -28,7 +28,7 @@
     and by the Info-ZIP [zip] and [unzip] commands under Unix and Windows.
     This format is also identical to the JAR file format used by Java. *)
 
-(** {6 Information on ZIP entries} *)
+(** {1 Information on ZIP entries} *)
 
 type compression_method =
     Stored                     (** data is stored without compression *)
@@ -49,7 +49,7 @@ type entry =
   }
           (** Description of an entry in a ZIP file. *)
 
-(** {6 Reading from ZIP files} *)
+(** {1 Reading from ZIP files} *)
 
 type in_file
           (** Abstract type representing a handle opened for reading from
@@ -91,7 +91,7 @@ val close_in: in_file -> unit
               created by [open_in_channel], the underlying input channel
               is closed. *)
 
-(** {6 Writing to ZIP files} *)
+(** {1 Writing to ZIP files} *)
 
 type out_file
           (** Abstract type representing a handle opened for writing to
@@ -164,7 +164,7 @@ val close_out: out_file -> unit
           (** Finish writing the ZIP archive by adding the table of
               contents, and close it. *)
 
-(** {6 Error reporting} *)
+(** {1 Error reporting} *)
 
 exception Error of string * string * string
           (** Exception raised when an ill-formed ZIP archive is encountered,
