@@ -1,0 +1,387 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="mystyle.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="Start" href="index.html">
+<link rel="previous" href="Gzip.html">
+<link rel="Up" href="index.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of exceptions" rel=Appendix href="index_exceptions.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Gzip" rel="Chapter" href="Gzip.html">
+<link title="Zip" rel="Chapter" href="Zip.html"><link title="Information on ZIP entries" rel="Section" href="#1_InformationonZIPentries">
+<link title="Reading from ZIP files" rel="Section" href="#1_ReadingfromZIPfiles">
+<link title="Writing to ZIP files" rel="Section" href="#1_WritingtoZIPfiles">
+<link title="Error reporting" rel="Section" href="#1_Errorreporting">
+<title>Zip</title>
+</head>
+<body>
+<div class="navbar"><a class="pre" href="Gzip.html" title="Gzip">Previous</a>
+&nbsp;<a class="up" href="index.html" title="Index">Up</a>
+&nbsp;</div>
+<h1>Module <a href="type_Zip.html">Zip</a></h1>
+
+<pre><span id="MODULEZip"><span class="keyword">module</span> Zip</span>: <code class="code">sig</code> <a href="Zip.html">..</a> <code class="code">end</code></pre><div class="info module top">
+<div class="info-desc">
+<p>Reading and writing ZIP archives</p>
+
+<p>This module provides functions for reading and writing ZIP archive
+    files.  ZIP archives package one or more compressed files into
+    a single ``ZIP file'' along with information about the files,
+    including file name, date and time of last modification, user-provided
+    comments, and a checksum to verify the integrity of each entry.
+    The entries of a ZIP file are not necessarily actual files, and can
+    actually consist of arbitrary data.</p>
+
+<p>The ZIP file format used in this module is identical to that
+    implemented by the popular <code class="code">pkzip</code> archiver under Windows,
+    and by the Info-ZIP <code class="code">zip</code> and <code class="code">unzip</code> commands under Unix and Windows.
+    This format is also identical to the JAR file format used by Java.</p>
+</div>
+</div>
+<hr width="100%">
+<h2 id="1_InformationonZIPentries">Information on ZIP entries</h2>
+<pre><code><span id="TYPEcompression_method"><span class="keyword">type</span> <code class="type"></code>compression_method</span> = </code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTcompression_method.Stored"><span class="constructor">Stored</span></span></code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>data is stored without compression</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code><span class="keyword">|</span></code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTcompression_method.Deflated"><span class="constructor">Deflated</span></span></code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>data is compressed with the ``deflate'' algorithm</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr></table>
+
+<div class="info ">
+<div class="info-desc">
+<p>Indicate whether the data in the entry is compressed or not.</p>
+</div>
+</div>
+
+
+<pre><code><span id="TYPEentry"><span class="keyword">type</span> <code class="type"></code>entry</span> = {</code></pre><table class="typetable">
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTentry.filename">filename</span>&nbsp;: <code class="type">string</code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>file name for entry</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTentry.extra">extra</span>&nbsp;: <code class="type">string</code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>extra information attached to entry</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTentry.comment">comment</span>&nbsp;: <code class="type">string</code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>comment attached to entry</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTentry.methd">methd</span>&nbsp;: <code class="type"><a href="Zip.html#TYPEcompression_method">compression_method</a></code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>compression method</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTentry.mtime">mtime</span>&nbsp;: <code class="type">float</code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>last modification time (seconds since epoch)</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTentry.crc">crc</span>&nbsp;: <code class="type">int32</code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>cyclic redundancy check for data</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTentry.uncompressed_size">uncompressed_size</span>&nbsp;: <code class="type">int</code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>size of original data in bytes</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTentry.compressed_size">compressed_size</span>&nbsp;: <code class="type">int</code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>size of compressed data</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTentry.is_directory">is_directory</span>&nbsp;: <code class="type">bool</code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>whether this entry represents a directory</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr>
+<tr>
+<td align="left" valign="top" >
+<code>&nbsp;&nbsp;</code></td>
+<td align="left" valign="top" >
+<code><span id="TYPEELTentry.file_offset">file_offset</span>&nbsp;: <code class="type">int64</code>;</code></td>
+<td class="typefieldcomment" align="left" valign="top" ><code>(*</code></td><td class="typefieldcomment" align="left" valign="top" ><div class="info ">
+<div class="info-desc">
+<p>for internal use</p>
+</div>
+</div>
+</td><td class="typefieldcomment" align="left" valign="bottom" ><code>*)</code></td>
+</tr></table>
+}
+
+<div class="info ">
+<div class="info-desc">
+<p>Description of an entry in a ZIP file.</p>
+</div>
+</div>
+
+<h2 id="1_ReadingfromZIPfiles">Reading from ZIP files</h2>
+<pre><span id="TYPEin_file"><span class="keyword">type</span> <code class="type"></code>in_file</span> </pre>
+<div class="info ">
+<div class="info-desc">
+<p>Abstract type representing a handle opened for reading from
+              a ZIP file.</p>
+</div>
+</div>
+
+
+<pre><span id="VALopen_in"><span class="keyword">val</span> open_in</span> : <code class="type">string -> <a href="Zip.html#TYPEin_file">in_file</a></code></pre><div class="info ">
+<div class="info-desc">
+<p>Open the ZIP file with the given filename.  Return a
+              handle opened for reading from this file.</p>
+</div>
+</div>
+
+<pre><span id="VALentries"><span class="keyword">val</span> entries</span> : <code class="type"><a href="Zip.html#TYPEin_file">in_file</a> -> <a href="Zip.html#TYPEentry">entry</a> list</code></pre><div class="info ">
+<div class="info-desc">
+<p>Return a list of all entries in the given ZIP file.</p>
+</div>
+</div>
+
+<pre><span id="VALcomment"><span class="keyword">val</span> comment</span> : <code class="type"><a href="Zip.html#TYPEin_file">in_file</a> -> string</code></pre><div class="info ">
+<div class="info-desc">
+<p>Return the comment attached to the given ZIP file, or the
+              empty string if none.</p>
+</div>
+</div>
+
+<pre><span id="VALfind_entry"><span class="keyword">val</span> find_entry</span> : <code class="type"><a href="Zip.html#TYPEin_file">in_file</a> -> string -> <a href="Zip.html#TYPEentry">entry</a></code></pre><div class="info ">
+<div class="info-desc">
+<p><code class="code">Zip.find_entry zf filename</code> returns the description of the
+              entry having name <code class="code">filename</code> in the ZIP file <code class="code">zf</code>.
+              Raises <code class="code">Not_found</code> if no such entry exists.
+              The file name must match exactly; in particular, case is
+              significant.  File names must use <code class="code">/</code> (slash) as the directory
+              separator.  The name of a directory must end with a trailing 
+              <code class="code">/</code> (slash).</p>
+</div>
+</div>
+
+<pre><span id="VALread_entry"><span class="keyword">val</span> read_entry</span> : <code class="type"><a href="Zip.html#TYPEin_file">in_file</a> -> <a href="Zip.html#TYPEentry">entry</a> -> string</code></pre><div class="info ">
+<div class="info-desc">
+<p><code class="code">Zip.read_entry zf e</code> reads and uncompresses the data
+              (file contents) associated with entry <code class="code">e</code> of ZIP file <code class="code">zf</code>.
+              The data is returned as a character string.</p>
+</div>
+</div>
+
+<pre><span id="VALcopy_entry_to_channel"><span class="keyword">val</span> copy_entry_to_channel</span> : <code class="type"><a href="Zip.html#TYPEin_file">in_file</a> -> <a href="Zip.html#TYPEentry">entry</a> -> Stdlib.out_channel -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p><code class="code">Zip.copy_entry_to_channel zf e oc</code> reads and uncompresses
+              the data associated with entry <code class="code">e</code> of ZIP file <code class="code">zf</code>.
+              It then writes this data to the output channel <code class="code">oc</code>.</p>
+</div>
+</div>
+
+<pre><span id="VALcopy_entry_to_file"><span class="keyword">val</span> copy_entry_to_file</span> : <code class="type"><a href="Zip.html#TYPEin_file">in_file</a> -> <a href="Zip.html#TYPEentry">entry</a> -> string -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p><code class="code">Zip.copy_entry_to_file zf e destfile</code> reads and uncompresses
+              the data associated with entry <code class="code">e</code> of ZIP file <code class="code">zf</code>.
+              It then writes this data to the file named <code class="code">destfile</code>.
+              The file <code class="code">destfile</code> is created if it does not exist,
+              and overwritten otherwise.  The last modification date of
+              the file is set to that indicated in the ZIP entry <code class="code">e</code>,
+              if possible.</p>
+</div>
+</div>
+
+<pre><span id="VALclose_in"><span class="keyword">val</span> close_in</span> : <code class="type"><a href="Zip.html#TYPEin_file">in_file</a> -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Close the given ZIP file handle.  If the ZIP file handle was
+              created by <code class="code">open_in_channel</code>, the underlying input channel
+              is closed.</p>
+</div>
+</div>
+<h2 id="1_WritingtoZIPfiles">Writing to ZIP files</h2>
+<pre><span id="TYPEout_file"><span class="keyword">type</span> <code class="type"></code>out_file</span> </pre>
+<div class="info ">
+<div class="info-desc">
+<p>Abstract type representing a handle opened for writing to
+              a ZIP file.</p>
+</div>
+</div>
+
+
+<pre><span id="VALopen_out"><span class="keyword">val</span> open_out</span> : <code class="type">?comment:string -> string -> <a href="Zip.html#TYPEout_file">out_file</a></code></pre><div class="info ">
+<div class="info-desc">
+<p>Create (or truncate to zero length) the ZIP file with
+              the given filename.  Return a handle opened for writing
+              to this file.  The optional argument <code class="code">comment</code> is a
+              comment string that is attached to the ZIP file as a whole
+              (as opposed to the comments that can be attached to individual
+              ZIP entries).</p>
+</div>
+</div>
+
+<pre><span id="VALadd_entry"><span class="keyword">val</span> add_entry</span> : <code class="type">string -><br>       <a href="Zip.html#TYPEout_file">out_file</a> -><br>       ?extra:string -><br>       ?comment:string -> ?level:int -> ?mtime:float -> string -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p><code class="code">Zip.add_entry data zf name</code> adds a new entry to the 
+              ZIP file <code class="code">zf</code>.  The data (file contents) associated with
+              the entry is taken from the string <code class="code">data</code>.  It is compressed
+              and written to the ZIP file <code class="code">zf</code>.  <code class="code">name</code> is the file name
+              stored along with this entry.  Several optional arguments
+              can be provided to control the format and attached information 
+              of the entry:</p>
+</div>
+</div>
+<div class="param_info"><code class="code">extra</code> : extra data attached to the entry (a string).
+                Default: empty.</div>
+<div class="param_info"><code class="code">comment</code> : attached to the entry (a string).
+                Default: empty.</div>
+<div class="param_info"><code class="code">level</code> : compression level for the entry.  This is an
+                integer between 0 and 9, with 0 meaning no compression (store
+                as is), 1 lowest compression, 9 highest compression.  Higher
+                levels result in smaller compressed data, but longer
+                compression times.
+                Default: 6 (moderate compression).</div>
+<div class="param_info"><code class="code">mtime</code> : last modification time (in seconds since the
+                epoch).
+                Default: the current time.</div>
+
+<pre><span id="VALcopy_channel_to_entry"><span class="keyword">val</span> copy_channel_to_entry</span> : <code class="type">Stdlib.in_channel -><br>       <a href="Zip.html#TYPEout_file">out_file</a> -><br>       ?extra:string -><br>       ?comment:string -> ?level:int -> ?mtime:float -> string -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Same as <code class="code">Zip.add_entry</code>, but the data associated with the
+              entry is read from the input channel given as first argument.
+              The channel is read up to end of file.</p>
+</div>
+</div>
+
+<pre><span id="VALcopy_file_to_entry"><span class="keyword">val</span> copy_file_to_entry</span> : <code class="type">string -><br>       <a href="Zip.html#TYPEout_file">out_file</a> -><br>       ?extra:string -><br>       ?comment:string -> ?level:int -> ?mtime:float -> string -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Same as <code class="code">Zip.add_entry</code>, but the data associated with the
+              entry is read from the file whose name is given as first
+              argument.  Also, the default value for the <code class="code">mtime</code>
+              optional parameter is the time of last modification of the
+              file.</p>
+</div>
+</div>
+
+<pre><span id="VALadd_entry_generator"><span class="keyword">val</span> add_entry_generator</span> : <code class="type"><a href="Zip.html#TYPEout_file">out_file</a> -><br>       ?extra:string -><br>       ?comment:string -><br>       ?level:int -><br>       ?mtime:float -> string -> (bytes -> int -> int -> unit) * (unit -> unit)</code></pre><div class="info ">
+<div class="info-desc">
+<p><code class="code">Zip.add_entry_generator zf name</code> returns a pair of functions
+              <code class="code">(add, finish)</code>.  It adds a new entry to the 
+              ZIP file <code class="code">zf</code>.  The file name stored along with this entry
+              is <code class="code">name</code>.  Initially, no data is stored in this entry.
+              To store data in this entry, the program must repeatedly call
+              the <code class="code">add</code> function returned by <code class="code">Zip.add_entry_generator</code>.
+              An invocation <code class="code">add s ofs len</code> stores <code class="code">len</code> characters of
+              byte sequence <code class="code">s</code> starting at offset <code class="code">ofs</code> in the ZIP entry.
+              When all the data forming the entry has been sent, the
+              program must call the <code class="code">finish</code> function returned by
+              <code class="code">Zip.add_entry_generator</code>.  <code class="code">finish</code> must be called exactly once.
+              The optional arguments to <code class="code">Zip.add_entry_generator</code>
+              are as described in <a href="Zip.html#VALadd_entry"><code class="code">Zip.add_entry</code></a>.</p>
+</div>
+</div>
+
+<pre><span id="VALclose_out"><span class="keyword">val</span> close_out</span> : <code class="type"><a href="Zip.html#TYPEout_file">out_file</a> -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Finish writing the ZIP archive by adding the table of
+              contents, and close it.</p>
+</div>
+</div>
+<h2 id="1_Errorreporting">Error reporting</h2>
+<pre><span id="EXCEPTIONError"><span class="keyword">exception</span> Error</span> <span class="keyword">of</span> <code class="type">string * string * string</code></pre>
+<div class="info ">
+<div class="info-desc">
+<p>Exception raised when an ill-formed ZIP archive is encountered,
+              or illegal parameters are given to the functions in this
+              module.  The exception is of the form
+              <code class="code">Error(ZIP_name, entry_name, message)</code> where <code class="code">ZIP_name</code>
+              is the name of the ZIP file, <code class="code">entry_name</code> the name of
+              the offending entry, and <code class="code">message</code> an explanation of the
+              error.</p>
+</div>
+</div>
+</body></html>

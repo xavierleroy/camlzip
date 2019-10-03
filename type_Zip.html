@@ -1,0 +1,63 @@
+<html><head>
+<link rel="stylesheet" href="mystyle.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="Start" href="index.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of exceptions" rel=Appendix href="index_exceptions.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Gzip" rel="Chapter" href="Gzip.html">
+<link title="Zip" rel="Chapter" href="Zip.html"><title>Zip</title>
+</head>
+<body>
+<code class="code"><span class="keyword">sig</span><br>
+&nbsp;&nbsp;<span class="keyword">type</span>&nbsp;compression_method&nbsp;=&nbsp;<span class="constructor">Stored</span>&nbsp;<span class="keywordsign">|</span>&nbsp;<span class="constructor">Deflated</span><br>
+&nbsp;&nbsp;<span class="keyword">type</span>&nbsp;entry&nbsp;=&nbsp;{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;filename&nbsp;:&nbsp;string;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;extra&nbsp;:&nbsp;string;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;comment&nbsp;:&nbsp;string;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;methd&nbsp;:&nbsp;<span class="constructor">Zip</span>.compression_method;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;mtime&nbsp;:&nbsp;float;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;crc&nbsp;:&nbsp;int32;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;uncompressed_size&nbsp;:&nbsp;int;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;compressed_size&nbsp;:&nbsp;int;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;is_directory&nbsp;:&nbsp;bool;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;file_offset&nbsp;:&nbsp;int64;<br>
+&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;<span class="keyword">type</span>&nbsp;in_file<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;open_in&nbsp;:&nbsp;string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Zip</span>.in_file<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;entries&nbsp;:&nbsp;<span class="constructor">Zip</span>.in_file&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Zip</span>.entry&nbsp;list<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;comment&nbsp;:&nbsp;<span class="constructor">Zip</span>.in_file&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;string<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;find_entry&nbsp;:&nbsp;<span class="constructor">Zip</span>.in_file&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Zip</span>.entry<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;read_entry&nbsp;:&nbsp;<span class="constructor">Zip</span>.in_file&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Zip</span>.entry&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;string<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;copy_entry_to_channel&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Zip</span>.in_file&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Zip</span>.entry&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Stdlib</span>.out_channel&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;unit<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;copy_entry_to_file&nbsp;:&nbsp;<span class="constructor">Zip</span>.in_file&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Zip</span>.entry&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;unit<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;close_in&nbsp;:&nbsp;<span class="constructor">Zip</span>.in_file&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;unit<br>
+&nbsp;&nbsp;<span class="keyword">type</span>&nbsp;out_file<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;open_out&nbsp;:&nbsp;?comment:string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;<span class="constructor">Zip</span>.out_file<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;add_entry&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;string&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Zip</span>.out_file&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;?extra:string&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;?comment:string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;?level:int&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;?mtime:float&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;unit<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;copy_channel_to_entry&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Stdlib</span>.in_channel&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Zip</span>.out_file&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;?extra:string&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;?comment:string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;?level:int&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;?mtime:float&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;unit<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;copy_file_to_entry&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;string&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Zip</span>.out_file&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;?extra:string&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;?comment:string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;?level:int&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;?mtime:float&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;unit<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;add_entry_generator&nbsp;:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="constructor">Zip</span>.out_file&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;?extra:string&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;?comment:string&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;?level:int&nbsp;<span class="keywordsign">-&gt;</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;?mtime:float&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;string&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;(bytes&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;int&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;int&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;unit)&nbsp;*&nbsp;(unit&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;unit)<br>
+&nbsp;&nbsp;<span class="keyword">val</span>&nbsp;close_out&nbsp;:&nbsp;<span class="constructor">Zip</span>.out_file&nbsp;<span class="keywordsign">-&gt;</span>&nbsp;unit<br>
+&nbsp;&nbsp;<span class="keyword">exception</span>&nbsp;<span class="constructor">Error</span>&nbsp;<span class="keyword">of</span>&nbsp;string&nbsp;*&nbsp;string&nbsp;*&nbsp;string<br>
+<span class="keyword">end</span></code></body></html>

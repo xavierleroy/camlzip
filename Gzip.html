@@ -1,0 +1,224 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="stylesheet" href="mystyle.css" type="text/css">
+<meta content="text/html; charset=iso-8859-1" http-equiv="Content-Type">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="Start" href="index.html">
+<link rel="next" href="Zip.html">
+<link rel="Up" href="index.html">
+<link title="Index of types" rel=Appendix href="index_types.html">
+<link title="Index of exceptions" rel=Appendix href="index_exceptions.html">
+<link title="Index of values" rel=Appendix href="index_values.html">
+<link title="Index of modules" rel=Appendix href="index_modules.html">
+<link title="Gzip" rel="Chapter" href="Gzip.html">
+<link title="Zip" rel="Chapter" href="Zip.html"><link title="Reading from compressed files" rel="Section" href="#1_Readingfromcompressedfiles">
+<link title="Writing to compressed files" rel="Section" href="#1_Writingtocompressedfiles">
+<link title="Error reporting" rel="Section" href="#1_Errorreporting">
+<title>Gzip</title>
+</head>
+<body>
+<div class="navbar">&nbsp;<a class="up" href="index.html" title="Index">Up</a>
+&nbsp;<a class="post" href="Zip.html" title="Zip">Next</a>
+</div>
+<h1>Module <a href="type_Gzip.html">Gzip</a></h1>
+
+<pre><span id="MODULEGzip"><span class="keyword">module</span> Gzip</span>: <code class="code">sig</code> <a href="Gzip.html">..</a> <code class="code">end</code></pre><div class="info module top">
+<div class="info-desc">
+<p>Reading and writing to/from <code class="code">gzip</code> compressed files</p>
+
+<p>This module provides functions to read and write compressed data
+   to/from files in <code class="code">gzip</code> format.</p>
+</div>
+</div>
+<hr width="100%">
+<h2 id="1_Readingfromcompressedfiles">Reading from compressed files</h2>
+<pre><span id="TYPEin_channel"><span class="keyword">type</span> <code class="type"></code>in_channel</span> </pre>
+<div class="info ">
+<div class="info-desc">
+<p>Abstract type representing a channel opened for reading
+           from a compressed file.</p>
+</div>
+</div>
+
+
+<pre><span id="VALopen_in"><span class="keyword">val</span> open_in</span> : <code class="type">string -> <a href="Gzip.html#TYPEin_channel">in_channel</a></code></pre><div class="info ">
+<div class="info-desc">
+<p>Open a compressed file for reading.  The argument is the file
+           name.</p>
+</div>
+</div>
+
+<pre><span id="VALopen_in_chan"><span class="keyword">val</span> open_in_chan</span> : <code class="type">Stdlib.Pervasives.in_channel -> <a href="Gzip.html#TYPEin_channel">in_channel</a></code></pre><div class="info ">
+<div class="info-desc">
+<p>Open a compressed file for reading.  The argument is a
+           regular file channel already opened on the compressed file.</p>
+</div>
+</div>
+
+<pre><span id="VALinput_char"><span class="keyword">val</span> input_char</span> : <code class="type"><a href="Gzip.html#TYPEin_channel">in_channel</a> -> char</code></pre><div class="info ">
+<div class="info-desc">
+<p>Uncompress one character from the given channel, and return it.
+           Raise <code class="code">End_of_file</code> if no more compressed data is available.</p>
+</div>
+</div>
+
+<pre><span id="VALinput_byte"><span class="keyword">val</span> input_byte</span> : <code class="type"><a href="Gzip.html#TYPEin_channel">in_channel</a> -> int</code></pre><div class="info ">
+<div class="info-desc">
+<p>Same as <code class="code">Gzip.input_char</code>, but return the 8-bit integer
+           representing the character.
+           Raise <code class="code">End_of_file</code> if no more compressed data is available.</p>
+</div>
+</div>
+
+<pre><span id="VALinput"><span class="keyword">val</span> input</span> : <code class="type"><a href="Gzip.html#TYPEin_channel">in_channel</a> -> bytes -> int -> int -> int</code></pre><div class="info ">
+<div class="info-desc">
+<p><code class="code">input ic buf pos len</code> uncompresses up to <code class="code">len</code> characters
+           from the given channel <code class="code">ic</code>,
+           storing them in string <code class="code">buf</code>, starting at character number <code class="code">pos</code>.
+           It returns the actual number of characters read, between 0 and
+           <code class="code">len</code> (inclusive).
+           A return value of 0 means that the end of file was reached.
+           A return value between 0 and <code class="code">len</code> exclusive means that
+           not all requested <code class="code">len</code> characters were read, either because
+           no more characters were available at that time, or because
+           the implementation found it convenient to do a partial read;
+           <code class="code">input</code> must be called again to read the remaining characters,
+           if desired.  (See also <code class="code">Gzip.really_input</code> for reading
+           exactly <code class="code">len</code> characters.)
+           Exception <code class="code">Invalid_argument "Gzip.input"</code> is raised if
+           <code class="code">pos</code> and <code class="code">len</code> do not designate a valid substring of <code class="code">buf</code>.</p>
+</div>
+</div>
+
+<pre><span id="VALreally_input"><span class="keyword">val</span> really_input</span> : <code class="type"><a href="Gzip.html#TYPEin_channel">in_channel</a> -> bytes -> int -> int -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p><code class="code">really_input ic buf pos len</code> uncompresses <code class="code">len</code> characters
+           from the given channel, storing them in
+           string <code class="code">buf</code>, starting at character number <code class="code">pos</code>.
+           Raise <code class="code">End_of_file</code> if fewer than <code class="code">len</code> characters can be read.
+           Raise <code class="code">Invalid_argument "Gzip.input"</code> if
+           <code class="code">pos</code> and <code class="code">len</code> do not designate a valid substring of <code class="code">buf</code>.</p>
+</div>
+</div>
+
+<pre><span id="VALclose_in"><span class="keyword">val</span> close_in</span> : <code class="type"><a href="Gzip.html#TYPEin_channel">in_channel</a> -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Close the given input channel.  If the channel was created with
+           <code class="code">Gzip.open_in_chan</code>, the underlying regular file channel
+           (of type <code class="code">Pervasives.in_channel</code>) is also closed.
+           Do not apply any of the functions above to a closed channel.</p>
+</div>
+</div>
+
+<pre><span id="VALdispose"><span class="keyword">val</span> dispose</span> : <code class="type"><a href="Gzip.html#TYPEin_channel">in_channel</a> -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Same as <code class="code">Gzip.close_in</code>, but does not close the underlying
+           regular file channel (of type <code class="code">Pervasives.in_channel</code>);
+           just dispose of the resources associated with the decompression
+           channel.  This can be useful if e.g. the underlying file channel
+           is a network socket on which more (uncompressed) data
+           is expected.</p>
+</div>
+</div>
+<h2 id="1_Writingtocompressedfiles">Writing to compressed files</h2>
+<pre><span id="TYPEout_channel"><span class="keyword">type</span> <code class="type"></code>out_channel</span> </pre>
+<div class="info ">
+<div class="info-desc">
+<p>Abstract type representing a channel opened for writing
+           to a compressed file.</p>
+</div>
+</div>
+
+
+<pre><span id="VALopen_out"><span class="keyword">val</span> open_out</span> : <code class="type">?level:int -> string -> <a href="Gzip.html#TYPEout_channel">out_channel</a></code></pre><div class="info ">
+<div class="info-desc">
+<p>Open a compressed file for writing.  The argument is the file
+           name.  The file is created if it does not exist, or
+           truncated to zero length if it exists.
+           The optional <code class="code">level</code> argument (an integer between 1 and 9)
+           indicates the compression level, with 1 being the weakest
+           (but fastest) compression and 9 being the strongest
+           (but slowest) compression.  The default level is 6
+           (medium compression).</p>
+</div>
+</div>
+
+<pre><span id="VALopen_out_chan"><span class="keyword">val</span> open_out_chan</span> : <code class="type">?level:int -> Stdlib.Pervasives.out_channel -> <a href="Gzip.html#TYPEout_channel">out_channel</a></code></pre><div class="info ">
+<div class="info-desc">
+<p>Open a compressed file for writing.  The argument is a
+           regular file channel already opened on the compressed file.
+           The optional <code class="code">level</code> argument sets the compression level
+           as documented for <code class="code">Gzip.open_out</code>.</p>
+</div>
+</div>
+
+<pre><span id="VALoutput_char"><span class="keyword">val</span> output_char</span> : <code class="type"><a href="Gzip.html#TYPEout_channel">out_channel</a> -> char -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Output one character to the given compressed channel.</p>
+</div>
+</div>
+
+<pre><span id="VALoutput_byte"><span class="keyword">val</span> output_byte</span> : <code class="type"><a href="Gzip.html#TYPEout_channel">out_channel</a> -> int -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Same as <code class="code">Gzip.output_char</code>, but the output character is given
+           by its code.  The given integer is taken modulo 256.</p>
+</div>
+</div>
+
+<pre><span id="VALoutput"><span class="keyword">val</span> output</span> : <code class="type"><a href="Gzip.html#TYPEout_channel">out_channel</a> -> bytes -> int -> int -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p><code class="code">output oc buf pos len</code> compresses and writes <code class="code">len</code> characters
+           from string <code class="code">buf</code>, starting at offset <code class="code">pos</code>, and writes the
+           compressed data to the channel <code class="code">oc</code>.
+           Raise <code class="code">Invalid_argument "Gzip.output"</code> if
+           <code class="code">pos</code> and <code class="code">len</code> do not designate a valid substring of <code class="code">buf</code>.</p>
+</div>
+</div>
+
+<pre><span id="VALoutput_substring"><span class="keyword">val</span> output_substring</span> : <code class="type"><a href="Gzip.html#TYPEout_channel">out_channel</a> -> string -> int -> int -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Same as <code class="code">output</code>, but takes a string as argument instead of
+           a byte sequence.</p>
+</div>
+<ul class="info-attributes">
+<li><b>Since</b> 1.06</li>
+</ul>
+</div>
+
+<pre><span id="VALclose_out"><span class="keyword">val</span> close_out</span> : <code class="type"><a href="Gzip.html#TYPEout_channel">out_channel</a> -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Close the given output channel.  If the channel was created with
+           <code class="code">Gzip.open_out_chan</code>, the underlying regular file channel
+           (of type <code class="code">Pervasives.out_channel</code>) is also closed.
+           Do not apply any of the functions above to a closed channel.</p>
+</div>
+</div>
+
+<pre><span id="VALflush"><span class="keyword">val</span> flush</span> : <code class="type"><a href="Gzip.html#TYPEout_channel">out_channel</a> -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Same as <code class="code">Gzip.close_out</code>, but do not close the underlying
+           regular file channel (of type <code class="code">Pervasives.out_channel</code>);
+           just flush all pending compressed data and
+           dispose of the resources associated with the compression
+           channel.  This can be useful if e.g. the underlying file channel
+           is a network socket on which more data is to be sent.</p>
+</div>
+</div>
+
+<pre><span id="VALflush_continue"><span class="keyword">val</span> flush_continue</span> : <code class="type"><a href="Gzip.html#TYPEout_channel">out_channel</a> -> unit</code></pre><div class="info ">
+<div class="info-desc">
+<p>Flush all pending compressed data through both the compression
+           channel and the underlying regular file channel, but keep both
+           channels open to accept further data.</p>
+</div>
+</div>
+<h2 id="1_Errorreporting">Error reporting</h2>
+<pre><span id="EXCEPTIONError"><span class="keyword">exception</span> Error</span> <span class="keyword">of</span> <code class="type">string</code></pre>
+<div class="info ">
+<div class="info-desc">
+<p>Exception raised by the functions above to signal errors during
+           compression or decompression, or ill-formed input files.</p>
+</div>
+</div>
+</body></html>
