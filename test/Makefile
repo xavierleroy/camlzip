@@ -1,4 +1,4 @@
-all: minizip minigzip
+all: minizip minigzip testzlib
 
 minigzip: ../zip.cma minigzip.ml
 	ocamlc -ccopt -g -g -I .. -o minigzip ../zip.cma minigzip.ml
