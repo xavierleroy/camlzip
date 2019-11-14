@@ -28,6 +28,6 @@ let _ =
     let oc = Gzip.open_out_chan stdout in
     let rec compress () =
       let n = input stdin buffer 0 (Bytes.length buffer) in
-      if n = 0 then () else begin Gzip.output oc buffer 0 n; compress() end
+      if n = 0 then () else begin Gzip.output oc buffer 0 n; Gzip.flush_continue oc; compress() end
     in compress(); Gzip.flush oc
   end
