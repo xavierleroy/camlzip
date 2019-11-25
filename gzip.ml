@@ -241,29 +241,32 @@ let write_int32 oc n =
     r := Int32.shift_right_logical !r 8
   done
 
-let flush_to_out_chan oz =
+let flush_to_out_chan ~flush_command oz =
   let rec do_flush () =
     (* If output buffer is full, flush it *)
     if oz.out_avail = 0 then flush_and_reset_out_buffer oz;
     let (finished, _, used_out) =
       Zlib.deflate oz.out_stream oz.out_buffer 0 0
                                  oz.out_buffer oz.out_pos oz.out_avail
-                                 Zlib.Z_FINISH in
+                                 flush_command in
     oz.out_pos <- oz.out_pos + used_out;
     oz.out_avail <- oz.out_avail - used_out;
-    if not finished then do_flush() in
+    (* When we use the Z_FINISH command, we must retry if finished is false. For all other
+     * flush commands, we should retry if we have filled the output buffer *)
+    let continue = (flush_command = Zlib.Z_FINISH && not finished) || oz.out_avail = 0 in
+    if continue then do_flush() in
   do_flush();
   (* Final data flush *)
   if oz.out_pos > 0 then flush_and_reset_out_buffer oz
 
 let flush_continue oz =
   (* Flush everything to the underlying file channel, then flush the channel. *)
-  flush_to_out_chan oz;
+  flush_to_out_chan ~flush_command:Zlib.Z_SYNC_FLUSH oz;
   Pervasives.flush oz.out_chan
 
 let flush oz =
   (* Flush everything to the output channel. *)
-  flush_to_out_chan oz;
+  flush_to_out_chan ~flush_command:Zlib.Z_FINISH oz;
   (* Write CRC and size *)
   write_int32 oz.out_chan oz.out_crc;
   write_int32 oz.out_chan oz.out_size;
