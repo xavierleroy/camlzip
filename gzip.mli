@@ -29,6 +29,8 @@ val open_in: string -> in_channel
 val open_in_chan: Pervasives.in_channel -> in_channel
        (** Open a compressed file for reading.  The argument is a
            regular file channel already opened on the compressed file. *)
+val in_channel_of_bytes: bytes -> in_channel
+       (** Read from a compressed in-memory byte buffer. *)
 val input_char: in_channel -> char
        (** Uncompress one character from the given channel, and return it.
            Raise [End_of_file] if no more compressed data is available. *)

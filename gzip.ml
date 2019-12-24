@@ -20,7 +20,7 @@ exception Error of string
 let buffer_size = 1024
 
 type in_channel =
-  { in_chan: Pervasives.in_channel;
+  { in_chan: Pervasives.in_channel option;
     in_buffer: bytes;
     mutable in_pos: int;
     mutable in_avail: int;
@@ -29,42 +29,45 @@ type in_channel =
     mutable in_size: int32;
     mutable in_crc: int32 }
 
-let open_in_chan ic =
+let skip_header input_byte =
   (* Superficial parsing of header *)
-  begin try
-    let id1 = input_byte ic in
-    let id2 = input_byte ic in
+  try
+    let id1 = input_byte () in
+    let id2 = input_byte () in
     if id1 <> 0x1F || id2 <> 0x8B then
-      raise(Error("bad magic number, not a gzip file"));
-    let cm = input_byte ic in
+      raise(Error("bad mag() number, not a gzip file"));
+    let cm = input_byte () in
     if cm <> 8 then
       raise(Error("unknown compression method"));
-    let flags = input_byte ic in
+    let flags = input_byte () in
     if flags land 0xE0 <> 0 then
       raise(Error("bad flags, not a gzip file"));
-    for i = 1 to 6 do ignore(input_byte ic) done;
+    for i = 1 to 6 do ignore(input_byte ()) done;
     if flags land 0x04 <> 0 then begin
       (* Skip extra data *)
-      let len1 = input_byte ic in
-      let len2 = input_byte ic in
-      for i = 1 to len1 + len2 lsl 8 do ignore(input_byte ic) done
+      let len1 = input_byte () in
+      let len2 = input_byte () in
+      for i = 1 to len1 + len2 lsl 8 do ignore(input_byte ()) done
     end;
     if flags land 0x08 <> 0 then begin
       (* Skip original file name *)
-      while input_byte ic <> 0 do () done
+      while input_byte () <> 0 do () done
     end;
     if flags land 0x10 <> 0 then begin
       (* Skip comment *)
-      while input_byte ic <> 0 do () done
+      while input_byte () <> 0 do () done
     end;
     if flags land 0x02 <> 0 then begin
       (* Skip header CRC *)
-      ignore(input_byte ic); ignore(input_byte ic)
+      ignore(input_byte ()); ignore(input_byte ())
     end
   with End_of_file ->
     raise(Error("premature end of file, not a gzip file"))
-  end;
-  { in_chan = ic;
+
+
+let open_in_chan ic =
+  skip_header (fun () -> input_byte ic);
+  { in_chan = Some ic;
     in_buffer = Bytes.create buffer_size;
     in_pos = 0;
     in_avail = 0;
@@ -74,16 +77,37 @@ let open_in_chan ic =
     in_crc = Int32.zero }
 
 let open_in filename =
-  let ic = Pervasives.open_in_bin filename in
-  try
-    open_in_chan ic
-  with exn ->
-    Pervasives.close_in ic; raise exn
+  open_in_chan (Pervasives.open_in_bin filename)
+
+let in_channel_of_bytes b =
+  let pos = ref 0 in
+  let len = Bytes.length b in
+  let input_byte () =
+    if !pos = len then raise End_of_file
+    else begin
+      let c = Bytes.get b !pos in
+      incr pos;
+      Char.code c
+    end
+  in
+  skip_header input_byte;
+  { in_chan = None;
+    in_buffer = b;
+    in_pos = !pos;
+    in_avail = (len - !pos);
+    in_eof = false;
+    in_stream = Zlib.inflate_init false;
+    in_size = Int32.zero;
+    in_crc = Int32.zero }
+
+let refill_buf iz =
+  match iz.in_chan with
+  | None -> 0
+  | Some ic -> Pervasives.input ic iz.in_buffer 0 (Bytes.length iz.in_buffer)
 
 let read_byte iz =
   if iz.in_avail = 0 then begin
-    let n = Pervasives.input iz.in_chan iz.in_buffer 0
-                             (Bytes.length iz.in_buffer) in
+    let n = refill_buf iz in
     if n = 0 then raise End_of_file;
     iz.in_pos <- 0;
     iz.in_avail <- n
@@ -108,8 +132,7 @@ let rec input iz buf pos len =
     invalid_arg "Gzip.input";
   if iz.in_eof then 0 else begin
     if iz.in_avail = 0 then begin
-      let n = Pervasives.input iz.in_chan iz.in_buffer 0
-                               (Bytes.length iz.in_buffer) in
+      let n = refill_buf iz in
       if n = 0 then raise(Error("truncated file"));
       iz.in_pos <- 0;
       iz.in_avail <- n
@@ -166,7 +189,10 @@ let dispose iz =
 
 let close_in iz =
   dispose iz;
-  Pervasives.close_in iz.in_chan
+  begin match iz.in_chan with
+  | None -> ()
+  | Some ic -> Pervasives.close_in ic
+  end
 
 type out_channel =
   { out_chan: Pervasives.out_channel;
