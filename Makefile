@@ -26,7 +26,7 @@ C_OBJS=zlibstubs.o
 include $(shell ocamlfind ocamlc -where)/Makefile.config
 
 ifeq "${NATDYNLINK}" "true"
-CMXS = zip.cmxs
+ZIP_CMXS = zip.cmxs
 endif
 
 ZLIB_L_OPT=$(if $(ZLIB_LIBDIR),-L$(ZLIB_LIBDIR))
@@ -34,7 +34,7 @@ ZLIB_I_OPT=$(if $(ZLIB_INCLUDE),-ccopt -I$(ZLIB_INCLUDE))
 
 all: libcamlzip$(EXT_LIB) zip.cma
 
-allopt: libcamlzip$(EXT_LIB) zip.cmxa $(CMXS)
+allopt: libcamlzip$(EXT_LIB) zip.cmxa $(ZIP_CMXS)
 
 zip.cma: $(OBJS)
 	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS) \
