@@ -44,7 +44,7 @@ zip.cmxa: $(OBJS:.cmo=.cmx)
 	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS:.cmo=.cmx) \
             $(ZLIB_L_OPT) $(ZLIB_LIB)
 
-zip.cmxs: zip.cmxa
+zip.cmxs: zip.cmxa libcamlzip$(EXT_LIB)
 	$(OCAMLOPT) -shared -linkall -I ./ -o $@ $^
 
 libcamlzip$(EXT_LIB): $(C_OBJS)
