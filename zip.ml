@@ -583,7 +583,8 @@ let add_entry_generator ofile ?(extra = "") ?(comment = "")
         check ();
         output ofile.of_channel buf pos len;
         compr_size := !compr_size + len;
-        uncompr_size := !uncompr_size + len
+        uncompr_size := !uncompr_size + len;
+        crc := Zlib.update_crc !crc buf pos len
       ),
       (fun () ->
         check ();
