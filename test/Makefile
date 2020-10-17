@@ -1,13 +1,22 @@
-all: minizip minigzip testzlib
+all: test-testzlib test-minizip test-minigzip
 
-minigzip: ../zip.cma minigzip.ml
-	ocamlc -ccopt -g -g -I .. -o minigzip ../zip.cma minigzip.ml
+minigzip: ../zip.cmxa minigzip.ml
+	ocamlopt -ccopt -g -g -I .. -o minigzip ../zip.cmxa minigzip.ml
 
-minizip: ../zip.cma minizip.ml
-	ocamlc -ccopt -g -g -I .. -o minizip unix.cma ../zip.cma minizip.ml
+test-minigzip: minigzip minigzip.run
+	sh ./minigzip.run
 
-testzlib: ../zip.cma testzlib.ml
-	ocamlc -g -I .. -o testzlib ../zip.cma testzlib.ml
+minizip: ../zip.cmxa minizip.ml
+	ocamlopt -ccopt -g -g -I .. -o minizip unix.cmxa ../zip.cmxa minizip.ml
+
+test-minizip: minizip minizip.run
+	sh ./minizip.run
+
+testzlib: ../zip.cmxa testzlib.ml
+	ocamlopt -g -I .. -o testzlib ../zip.cmxa testzlib.ml
+
+test-testzlib: testzlib testzlib.run
+	sh ./testzlib.run
 
 clean:
 	rm -f *.cm*
