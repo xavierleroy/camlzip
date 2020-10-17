@@ -32,24 +32,26 @@ endif
 ZLIB_L_OPT=$(if $(ZLIB_LIBDIR),-L$(ZLIB_LIBDIR))
 ZLIB_I_OPT=$(if $(ZLIB_INCLUDE),-ccopt -I$(ZLIB_INCLUDE))
 
-all: libcamlzip$(EXT_LIB) zip.cma
+all:: allbyt
+ifeq "${NATIVE_COMPILER}" "true"
+all:: allopt
+endif
+
+allbyt: libcamlzip$(EXT_LIB) zip.cma
 
 allopt: libcamlzip$(EXT_LIB) zip.cmxa $(ZIP_CMXS)
 
 zip.cma: $(OBJS)
-	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS) \
-            $(ZLIB_L_OPT) $(ZLIB_LIB)
+	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS) $(ZLIB_L_OPT) $(ZLIB_LIB)
 
 zip.cmxa: $(OBJS:.cmo=.cmx)
-	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS:.cmo=.cmx) \
-            $(ZLIB_L_OPT) $(ZLIB_LIB)
+	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS:.cmo=.cmx) $(ZLIB_L_OPT) $(ZLIB_LIB)
 
 zip.cmxs: zip.cmxa libcamlzip$(EXT_LIB)
 	$(OCAMLOPT) -shared -linkall -I ./ -o $@ $^
 
 libcamlzip$(EXT_LIB): $(C_OBJS)
-	$(OCAMLMKLIB) -oc camlzip $(C_OBJS) \
-            $(ZLIB_L_OPT) $(ZLIB_LIB)
+	$(OCAMLMKLIB) -oc camlzip $(C_OBJS) $(ZLIB_L_OPT) $(ZLIB_LIB)
 
 .SUFFIXES: .mli .ml .cmo .cmi .cmx
 
