@@ -26,7 +26,7 @@ type in_channel
 val open_in: string -> in_channel
        (** Open a compressed file for reading.  The argument is the file
            name. *)
-val open_in_chan: Pervasives.in_channel -> in_channel
+val open_in_chan: Stdlib.in_channel -> in_channel
        (** Open a compressed file for reading.  The argument is a
            regular file channel already opened on the compressed file. *)
 val input_char: in_channel -> char
@@ -62,11 +62,11 @@ val really_input: in_channel -> bytes -> int -> int -> unit
 val close_in: in_channel -> unit
        (** Close the given input channel.  If the channel was created with
            [Gzip.open_in_chan], the underlying regular file channel
-           (of type [Pervasives.in_channel]) is also closed.
+           (of type [Stdlib.in_channel]) is also closed.
            Do not apply any of the functions above to a closed channel. *)
 val dispose: in_channel -> unit
        (** Same as [Gzip.close_in], but does not close the underlying
-           regular file channel (of type [Pervasives.in_channel]);
+           regular file channel (of type [Stdlib.in_channel]);
            just dispose of the resources associated with the decompression
            channel.  This can be useful if e.g. the underlying file channel
            is a network socket on which more (uncompressed) data
@@ -86,7 +86,7 @@ val open_out: ?level:int -> string -> out_channel
            (but fastest) compression and 9 being the strongest
            (but slowest) compression.  The default level is 6
            (medium compression). *)
-val open_out_chan: ?level:int -> Pervasives.out_channel -> out_channel
+val open_out_chan: ?level:int -> Stdlib.out_channel -> out_channel
        (** Open a compressed file for writing.  The argument is a
            regular file channel already opened on the compressed file.
            The optional [level] argument sets the compression level
@@ -109,11 +109,11 @@ val output_substring: out_channel -> string -> int -> int -> unit
 val close_out: out_channel -> unit
        (** Close the given output channel.  If the channel was created with
            [Gzip.open_out_chan], the underlying regular file channel
-           (of type [Pervasives.out_channel]) is also closed.
+           (of type [Stdlib.out_channel]) is also closed.
            Do not apply any of the functions above to a closed channel. *)
 val flush: out_channel -> unit
        (** Same as [Gzip.close_out], but do not close the underlying
-           regular file channel (of type [Pervasives.out_channel]);
+           regular file channel (of type [Stdlib.out_channel]);
            just flush all pending compressed data and
            dispose of the resources associated with the compression
            channel.  This can be useful if e.g. the underlying file channel

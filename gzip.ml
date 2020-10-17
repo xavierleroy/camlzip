@@ -20,7 +20,7 @@ exception Error of string
 let buffer_size = 1024
 
 type in_channel =
-  { in_chan: Pervasives.in_channel;
+  { in_chan: Stdlib.in_channel;
     in_buffer: bytes;
     mutable in_pos: int;
     mutable in_avail: int;
@@ -74,15 +74,15 @@ let open_in_chan ic =
     in_crc = Int32.zero }
 
 let open_in filename =
-  let ic = Pervasives.open_in_bin filename in
+  let ic = Stdlib.open_in_bin filename in
   try
     open_in_chan ic
   with exn ->
-    Pervasives.close_in ic; raise exn
+    Stdlib.close_in ic; raise exn
 
 let read_byte iz =
   if iz.in_avail = 0 then begin
-    let n = Pervasives.input iz.in_chan iz.in_buffer 0
+    let n = Stdlib.input iz.in_chan iz.in_buffer 0
                              (Bytes.length iz.in_buffer) in
     if n = 0 then raise End_of_file;
     iz.in_pos <- 0;
@@ -108,7 +108,7 @@ let rec input iz buf pos len =
     invalid_arg "Gzip.input";
   if iz.in_eof then 0 else begin
     if iz.in_avail = 0 then begin
-      let n = Pervasives.input iz.in_chan iz.in_buffer 0
+      let n = Stdlib.input iz.in_chan iz.in_buffer 0
                                (Bytes.length iz.in_buffer) in
       if n = 0 then raise(Error("truncated file"));
       iz.in_pos <- 0;
@@ -166,10 +166,10 @@ let dispose iz =
 
 let close_in iz =
   dispose iz;
-  Pervasives.close_in iz.in_chan
+  Stdlib.close_in iz.in_chan
 
 type out_channel =
-  { out_chan: Pervasives.out_channel;
+  { out_chan: Stdlib.out_channel;
     out_buffer: bytes;
     mutable out_pos: int;
     mutable out_avail: int;
@@ -196,10 +196,10 @@ let open_out_chan ?(level = 6) oc =
     out_crc = Int32.zero }
 
 let open_out ?(level = 6) filename =
-  open_out_chan ~level (Pervasives.open_out_bin filename)
+  open_out_chan ~level (Stdlib.open_out_bin filename)
 
 let flush_and_reset_out_buffer oz =
-  Pervasives.output oz.out_chan oz.out_buffer 0 oz.out_pos;
+  Stdlib.output oz.out_chan oz.out_buffer 0 oz.out_pos;
   oz.out_pos <- 0;
   oz.out_avail <- Bytes.length oz.out_buffer
 
@@ -237,7 +237,7 @@ let output_byte oz b =
 let write_int32 oc n =
   let r = ref n in
   for i = 1 to 4 do
-    Pervasives.output_byte oc (Int32.to_int !r);
+    Stdlib.output_byte oc (Int32.to_int !r);
     r := Int32.shift_right_logical !r 8
   done
 
@@ -262,7 +262,7 @@ let flush_to_out_chan ~flush_command oz =
 let flush_continue oz =
   (* Flush everything to the underlying file channel, then flush the channel. *)
   flush_to_out_chan ~flush_command:Zlib.Z_SYNC_FLUSH oz;
-  Pervasives.flush oz.out_chan
+  Stdlib.flush oz.out_chan
 
 let flush oz =
   (* Flush everything to the output channel. *)
@@ -275,5 +275,5 @@ let flush oz =
 
 let close_out oz =
   flush oz;
-  Pervasives.close_out oz.out_chan
+  Stdlib.close_out oz.out_chan
 
