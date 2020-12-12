@@ -33,8 +33,10 @@ ZLIB_L_OPT=$(if $(ZLIB_LIBDIR),-L$(ZLIB_LIBDIR))
 ZLIB_I_OPT=$(if $(ZLIB_INCLUDE),-ccopt -I$(ZLIB_INCLUDE))
 
 all:: allbyt
-ifeq "${NATIVE_COMPILER}" "true"
+ifneq "${ARCH}" "none"
+ifneq "${NATIVE_COMPILER}" "false"
 all:: allopt
+endif
 endif
 
 allbyt: libcamlzip$(EXT_LIB) zip.cma
