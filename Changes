@@ -1,3 +1,13 @@
+Release 1.11:
+- `Zip.add_entry_generator ~level:0` was missing a CRC update
+- GPR#28: fix build on platforms with no shared libs
+- GPR#33: update META files to use plugin convention
+- Use `Stdlib.xxx` instead of `Pervasives.xxx`.  OCaml >= 4.07 is required.
+- `make all` automatically builds in native-code if supported
+- Added local .opam file
+- Updated tests and added automatic test harness
+- Generate and install .mli, .cmt, and .cmti files
+
 Release 1.10:
 - GPR#25: Fix Gzip.flush_continue [James Owen]
 - Improve compatibility with OCaml 4.09
