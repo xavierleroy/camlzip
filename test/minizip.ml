@@ -80,7 +80,7 @@ let usage() =
 "Usage: 
   minizip t <zipfile>           show contents of <zipfile>
   minizip x <zipfile>           extract files from <zipfile>
-  minizip c <zipfile> <file> .. create a <zipfile> with the given files";
+  minizip c <zipfile> <file> .. create a <zipfile> with the given files\n";
   exit 2
 
 let _ =

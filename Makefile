@@ -15,7 +15,7 @@ ZLIB_INCLUDE=
 
 ### End of configuration section
 
-OCAMLC=ocamlfind ocamlc -g -safe-string
+OCAMLC=ocamlfind ocamlc -g -safe-string -bin-annot
 OCAMLOPT=ocamlfind ocamlopt -safe-string
 OCAMLDEP=ocamlfind ocamldep
 OCAMLMKLIB=ocamlfind ocamlmklib
@@ -26,30 +26,34 @@ C_OBJS=zlibstubs.o
 include $(shell ocamlfind ocamlc -where)/Makefile.config
 
 ifeq "${NATDYNLINK}" "true"
-CMXS = zip.cmxs
+ZIP_CMXS = zip.cmxs
 endif
 
 ZLIB_L_OPT=$(if $(ZLIB_LIBDIR),-L$(ZLIB_LIBDIR))
 ZLIB_I_OPT=$(if $(ZLIB_INCLUDE),-ccopt -I$(ZLIB_INCLUDE))
 
-all: libcamlzip$(EXT_LIB) zip.cma
+all:: allbyt
+ifneq "${ARCH}" "none"
+ifneq "${NATIVE_COMPILER}" "false"
+all:: allopt
+endif
+endif
 
-allopt: libcamlzip$(EXT_LIB) zip.cmxa $(CMXS)
+allbyt: libcamlzip$(EXT_LIB) zip.cma
+
+allopt: libcamlzip$(EXT_LIB) zip.cmxa $(ZIP_CMXS)
 
 zip.cma: $(OBJS)
-	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS) \
-            $(ZLIB_L_OPT) $(ZLIB_LIB)
+	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS) $(ZLIB_L_OPT) $(ZLIB_LIB)
 
 zip.cmxa: $(OBJS:.cmo=.cmx)
-	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS:.cmo=.cmx) \
-            $(ZLIB_L_OPT) $(ZLIB_LIB)
+	$(OCAMLMKLIB) -o zip -oc camlzip $(OBJS:.cmo=.cmx) $(ZLIB_L_OPT) $(ZLIB_LIB)
 
-zip.cmxs: zip.cmxa
+zip.cmxs: zip.cmxa libcamlzip$(EXT_LIB)
 	$(OCAMLOPT) -shared -linkall -I ./ -o $@ $^
 
 libcamlzip$(EXT_LIB): $(C_OBJS)
-	$(OCAMLMKLIB) -oc camlzip $(C_OBJS) \
-            $(ZLIB_L_OPT) $(ZLIB_LIB)
+	$(OCAMLMKLIB) -oc camlzip $(C_OBJS) $(ZLIB_L_OPT) $(ZLIB_LIB)
 
 .SUFFIXES: .mli .ml .cmo .cmi .cmx
 
@@ -67,14 +71,24 @@ clean:
 	rm -f *.o *.a *.so
 	rm -rf doc/
 
+TOINSTALL=\
+  *.cma *$(EXT_LIB) \
+  *.mli *.cmi *.cmti *.cmt  \
+  $(wildcard *.cmx) $(wildcard *.cmxa) \
+  $(wildcard *.cmxs) $(wildcard *$(EXT_DLL))
+
 install-findlib: install
 install:
 	cp META-zip META && \
-        ocamlfind install zip META *.mli *.a *.cmi *.cma $(wildcard *.cmx) $(wildcard *.cmxa) $(wildcard *.cmxs) $(wildcard *$(EXT_DLL)) && \
+        ocamlfind install zip META $(TOINSTALL) && \
         rm META
 	cp META-camlzip META && \
         ocamlfind install camlzip META && \
         rm META
+
+uninstall:
+	ocamlfind remove zip
+	ocamlfind remove camlzip
 
 depend:
 	gcc -MM $(ZLIB_I_OPT) *.c > .depend
