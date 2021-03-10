@@ -77,7 +77,11 @@ let open_in_chan ic =
     in_crc = Int32.zero }
 
 let open_in filename =
-  open_in_chan (Pervasives.open_in_bin filename)
+  let ic = Pervasives.open_in_bin filename in
+  try
+    open_in_chan ic
+  with exn ->
+    Pervasives.close_in ic; raise exn
 
 let in_channel_of_bytes b =
   let pos = ref 0 in
@@ -302,4 +306,3 @@ let flush oz =
 let close_out oz =
   flush oz;
   Pervasives.close_out oz.out_chan
-
