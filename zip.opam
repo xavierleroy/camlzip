@@ -17,6 +17,7 @@ description: "Reading and writing zip and gzip files from OCaml."
 depends: [
   "dune-configurator"
   "dune"
+  "stdlib-shims"
   "conf-zlib"
   "ocaml" {>= "4.02.0"}
 ]

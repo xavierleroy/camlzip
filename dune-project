@@ -20,6 +20,7 @@
  (depends
   dune-configurator
   dune
+  stdlib-shims
   conf-zlib
   (ocaml
    (>= 4.02.0))))

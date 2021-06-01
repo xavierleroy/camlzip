@@ -3,6 +3,7 @@
  (synopsis "OCaml ZIP interface")
  (wrapped false)
  (modules gzip zip zlib)
+ (libraries stdlib-shims)
  (c_names zlibstubs)
  (c_flags
   (:include c_flags.sexp))
