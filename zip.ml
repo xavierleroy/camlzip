@@ -17,32 +17,6 @@
 
 exception Error of string * string * string
 
-let read1 = input_byte
-let read2 ic =
-  let lb = read1 ic in let hb = read1 ic in lb lor (hb lsl 8)
-let read4 ic =
-  let lw = read2 ic in let hw = read2 ic in
-  Int32.logor (Int32.of_int lw) (Int32.shift_left (Int32.of_int hw) 16)
-let read4_int ic =
-  let lw = read2 ic in let hw = read2 ic in
-  if hw > max_int lsr 16 then raise (Error("", "", "32-bit data too large"));
-  lw lor (hw lsl 16)
-let readstring ic n =
-  let s = Bytes.create n in
-  really_input ic s 0 n; Bytes.unsafe_to_string s
-
-let write1 = output_byte
-let write2 oc n =
-  write1 oc n; write1 oc (n lsr 8)
-let write4 oc n =
-  write2 oc (Int32.to_int n);
-  write2 oc (Int32.to_int (Int32.shift_right_logical n 16))
-let write4_int oc n =
-  write2 oc n;
-  write2 oc (n lsr 16)
-let writestring oc s =
-  output_string oc s
-
 type compression_method = Stored | Deflated
 
 type entry =
@@ -57,21 +31,93 @@ type entry =
     is_directory: bool;
     file_offset: int64 }
 
+(* Determine if a file name is a directory (ends with /) *)
+
+let filename_is_directory name =
+  String.length name > 0 && name.[String.length name - 1] = '/'
+
+module type IN_CHANNEL = sig
+  type t
+  val open_in : string -> t
+  val close_in : t -> unit
+  val input_byte : t -> int
+  val input : t -> bytes -> int -> int -> int
+  val really_input : t -> bytes -> int -> int -> unit
+  val length : t -> int64
+  val pos : t -> int64
+  val seek : t -> int64 -> unit
+end
+
+module type READER = sig
+  type in_file
+  val open_in: string -> in_file
+  val entries: in_file -> entry list
+  val comment: in_file -> string
+  val find_entry: in_file -> string -> entry
+  val read_entry: in_file -> entry -> string
+  val copy_entry_to_channel: in_file -> entry -> out_channel -> unit
+  val copy_entry_to_file: in_file -> entry -> string -> unit
+  val close_in: in_file -> unit
+end
+
+module type OUT_CHANNEL = sig
+  type t
+  val open_out: string -> t
+  val output_byte : t -> int -> unit
+  val output_string : t -> string -> unit
+  val output_substring : t -> string -> int -> int -> unit
+  val output : t -> bytes -> int -> int -> unit
+  val pos : t -> int64
+  val close_out: t -> unit
+end
+
+module type WRITER = sig
+  type out_file
+  val open_out: ?comment: string -> string -> out_file
+  val add_entry:
+    string -> out_file ->
+      ?extra: string -> ?comment: string -> ?level: int ->
+      ?mtime: float -> string -> unit
+  val copy_channel_to_entry:
+    in_channel -> out_file ->
+      ?extra: string -> ?comment: string -> ?level: int ->
+      ?mtime: float -> string -> unit
+  val copy_file_to_entry:
+    string -> out_file ->
+      ?extra: string -> ?comment: string -> ?level: int ->
+      ?mtime: float -> string -> unit
+  val add_entry_generator:
+    out_file ->
+      ?extra: string -> ?comment: string -> ?level: int ->
+      ?mtime: float -> string -> (bytes -> int -> int -> unit) * (unit -> unit)
+  val close_out: out_file -> unit
+end
+
+module Make_reader(In_channel: IN_CHANNEL) : READER = struct
+
+let read1 = In_channel.input_byte
+let read2 ic =
+  let lb = read1 ic in let hb = read1 ic in lb lor (hb lsl 8)
+let read4 ic =
+  let lw = read2 ic in let hw = read2 ic in
+  Int32.logor (Int32.of_int lw) (Int32.shift_left (Int32.of_int hw) 16)
+let read4_int ic =
+  let lw = read2 ic in let hw = read2 ic in
+  if hw > max_int lsr 16 then raise (Error("", "", "32-bit data too large"));
+  lw lor (hw lsl 16)
+let readstring ic n =
+  let s = Bytes.create n in
+  In_channel.really_input ic s 0 n; Bytes.unsafe_to_string s
+
 type in_file =
   { if_filename: string;
-    if_channel: Stdlib.in_channel;
+    if_channel: In_channel.t;
     if_entries: entry list;
     if_directory: (string, entry) Hashtbl.t;
     if_comment: string }
 
 let entries ifile = ifile.if_entries
 let comment ifile = ifile.if_comment
-
-type out_file =
-  { of_filename: string;
-    of_channel: Stdlib.out_channel;
-    mutable of_entries: entry list;
-    of_comment: string }
 
 (* Return the position of the last occurrence of [pattern] in [buf],
    or -1 if not found. *)
@@ -83,11 +129,6 @@ let strrstr (pattern: string) (buf: bytes) ofs len =
     else if String.get pattern j = Bytes.get buf (i + j) then search i (j+1)
     else search (i-1) 0
   in search (ofs + len - String.length pattern) 0
-
-(* Determine if a file name is a directory (ends with /) *)
-
-let filename_is_directory name =
-  String.length name > 0 && name.[String.length name - 1] = '/'
 
 (* Convert between Unix dates and DOS dates *)
 
@@ -103,20 +144,11 @@ let unixtime_of_dostime time date =
           Unix.tm_yday = 0;
           Unix.tm_isdst = false })
 
-let dostime_of_unixtime t =
-  let tm = Unix.localtime t in
-  (tm.Unix.tm_sec lsr 1
-     + (tm.Unix.tm_min lsl 5)
-     + (tm.Unix.tm_hour lsl 11),
-   tm.Unix.tm_mday
-     + (tm.Unix.tm_mon + 1) lsl 5
-     + (tm.Unix.tm_year - 80) lsl 9)
-
 (* Read end of central directory record *)
 
 let read_ecd filename ic =
   let buf = Bytes.create 256 in
-  let filelen = LargeFile.in_channel_length ic in
+  let filelen = In_channel.length ic in
   let rec find_ecd pos len =
     (* On input, bytes 0 ... len - 1 of buf reflect what is at pos in ic *)
     if pos <= 0L || Int64.sub filelen pos >= 0x10000L then
@@ -126,8 +158,8 @@ let read_ecd filename ic =
     (* Make room for "toread" extra bytes, and read them *)
     Bytes.blit buf 0 buf toread (256 - toread);
     let newpos = Int64.(sub pos (of_int toread)) in
-    LargeFile.seek_in ic newpos;
-    really_input ic buf 0 toread;
+    In_channel.seek ic newpos;
+    In_channel.really_input ic buf 0 toread;
     let newlen = min (toread + len) 256 in
     (* Search for magic number *)
     let ofs = strrstr "PK\005\006" buf 0 newlen in
@@ -139,7 +171,7 @@ let read_ecd filename ic =
       find_ecd newpos newlen
     else
       Int64.(add newpos (of_int ofs)) in
-  LargeFile.seek_in ic (find_ecd filelen 0);
+  In_channel.seek ic (find_ecd filelen 0);
   let magic = read4 ic in
   let disk_no = read2 ic in
   let cd_disk_no = read2 ic in
@@ -162,10 +194,10 @@ let int64_of_uint32 n =
 let read_cd filename ic cd_entries cd_offset cd_bound =
   let cd_bound = int64_of_uint32 cd_bound in
   try
-    LargeFile.seek_in ic (int64_of_uint32 cd_offset);
+    In_channel.seek ic (int64_of_uint32 cd_offset);
     let e = ref [] in
     let entrycnt = ref 0 in
-    while (LargeFile.pos_in ic < cd_bound) do
+    while (In_channel.pos ic < cd_bound) do
       incr entrycnt;
       let magic = read4 ic in
       let _version_made_by = read2 ic in
@@ -209,7 +241,7 @@ let read_cd filename ic cd_entries cd_offset cd_bound =
              file_offset = header_offset
            } :: !e
     done;
-    assert((cd_bound = (LargeFile.pos_in ic)) &&
+    assert((cd_bound = (In_channel.pos ic)) &&
            (cd_entries = 65535 || cd_entries = !entrycnt land 0xffff));
     List.rev !e
   with End_of_file ->
@@ -218,7 +250,7 @@ let read_cd filename ic cd_entries cd_offset cd_bound =
 (* Open a ZIP file for reading *)
 
 let open_in filename =
-  let ic = Stdlib.open_in_bin filename in
+  let ic = In_channel.open_in filename in
   try
     let (cd_entries, cd_size, cd_offset, cd_comment) = read_ecd filename ic in
     let entries =
@@ -231,12 +263,12 @@ let open_in filename =
       if_directory = dir;
       if_comment = cd_comment }
   with exn ->
-    Stdlib.close_in ic; raise exn
+    In_channel.close_in ic; raise exn
 
 (* Close a ZIP file opened for reading *)
 
 let close_in ifile =
-  Stdlib.close_in ifile.if_channel
+  In_channel.close_in ifile.if_channel
 
 (* Return the info associated with an entry *)
 
@@ -248,7 +280,7 @@ let find_entry ifile name =
 let goto_entry ifile e =
   try
     let ic = ifile.if_channel in
-    LargeFile.seek_in ic e.file_offset;
+    In_channel.seek ic e.file_offset;
     let magic = read4 ic in
     let _version_needed = read2 ic in
     let _flags = read2 ic in
@@ -264,7 +296,7 @@ let goto_entry ifile e =
        raise (Error(ifile.if_filename, e.filename, "wrong local file header"));
     (* Could validate information read against directory entry, but
        what the heck *)
-    LargeFile.seek_in ifile.if_channel
+    In_channel.seek ifile.if_channel
       (Int64.add e.file_offset (Int64.of_int (30 + filename_len + extra_len)))
   with End_of_file ->
     raise (Error(ifile.if_filename, e.filename, "truncated local file header"))
@@ -280,7 +312,7 @@ let read_entry ifile e =
         if e.compressed_size <> e.uncompressed_size then
           raise (Error(ifile.if_filename, e.filename,
                        "wrong size for stored entry"));
-        really_input ifile.if_channel res 0 e.uncompressed_size;
+        In_channel.really_input ifile.if_channel res 0 e.uncompressed_size;
         Bytes.unsafe_to_string res
     | Deflated ->
         let in_avail = ref e.compressed_size in
@@ -288,7 +320,7 @@ let read_entry ifile e =
         begin try
           Zlib.uncompress ~header:false
             (fun buf ->
-              let read = input ifile.if_channel buf 0
+              let read = In_channel.input ifile.if_channel buf 0
                                (min !in_avail (Bytes.length buf)) in
               in_avail := !in_avail - read;
               read)
@@ -324,7 +356,7 @@ let copy_entry_to_channel ifile e oc =
         let buf = Bytes.create 4096 in
         let rec copy n =
           if n > 0 then begin
-            let r = input ifile.if_channel buf 0 (min n (Bytes.length buf)) in
+            let r = In_channel.input ifile.if_channel buf 0 (min n (Bytes.length buf)) in
             output oc buf 0 r;
             copy (n - r)
           end in
@@ -335,7 +367,7 @@ let copy_entry_to_channel ifile e oc =
         begin try
           Zlib.uncompress ~header:false
             (fun buf ->
-              let read = input ifile.if_channel buf 0
+              let read = In_channel.input ifile.if_channel buf 0
                                (min !in_avail (Bytes.length buf)) in
               in_avail := !in_avail - read;
               read)
@@ -365,6 +397,40 @@ let copy_entry_to_file ifile e outfilename =
     close_out oc;
     Sys.remove outfilename;
     raise x
+end
+
+include Make_reader(struct
+  type t = Stdlib.in_channel
+  let open_in = Stdlib.open_in
+  let close_in = Stdlib.close_in
+  let input_byte = Stdlib.input_byte
+  let input = Stdlib.input
+  let really_input = Stdlib.really_input
+  let length = LargeFile.in_channel_length
+  let pos = LargeFile.pos_in
+  let seek = LargeFile.seek_in
+end)
+
+
+module Make_writer(Out_channel: OUT_CHANNEL) : WRITER = struct
+
+let write1 = Out_channel.output_byte
+let write2 oc n =
+  write1 oc n; write1 oc (n lsr 8)
+let write4 oc n =
+  write2 oc (Int32.to_int n);
+  write2 oc (Int32.to_int (Int32.shift_right_logical n 16))
+let write4_int oc n =
+  write2 oc n;
+  write2 oc (n lsr 16)
+let writestring oc s =
+  Out_channel.output_string oc s
+
+type out_file =
+  { of_filename: string;
+    of_channel: Out_channel.t;
+    mutable of_entries: entry list;
+    of_comment: string }
 
 (* Open a ZIP file for writing *)
 
@@ -372,11 +438,19 @@ let open_out ?(comment = "") filename =
   if String.length comment >= 0x10000 then
     raise(Error(filename, "", "comment too long"));
   { of_filename = filename;
-    of_channel = Stdlib.open_out_bin filename;
+    of_channel = Out_channel.open_out filename;
     of_entries = [];
     of_comment = comment }
 
 (* Close a ZIP file for writing.  Add central directory. *)
+let dostime_of_unixtime t =
+  let tm = Unix.localtime t in
+  (tm.Unix.tm_sec lsr 1
+     + (tm.Unix.tm_min lsl 5)
+     + (tm.Unix.tm_hour lsl 11),
+   tm.Unix.tm_mday
+     + (tm.Unix.tm_mon + 1) lsl 5
+     + (tm.Unix.tm_year - 80) lsl 9)
 
 let write_directory_entry oc e =
   write4 oc (Int32.of_int 0x02014b50);  (* signature *)
@@ -404,6 +478,7 @@ let write_directory_entry oc e =
 
 let close_out ofile =
   let oc = ofile.of_channel in
+  let pos_out oc = Int64.to_int (Out_channel.pos oc) in
   let start_cd = pos_out oc in
   List.iter (write_directory_entry oc) (List.rev ofile.of_entries);
   let cd_size = pos_out oc - start_cd in
@@ -419,7 +494,7 @@ let close_out ofile =
   write4_int oc start_cd;               (* offset of central dir *)
   write2 oc (String.length ofile.of_comment); (* length of comment *)
   writestring oc ofile.of_comment;         (* comment *)
-  Stdlib.close_out oc
+  Out_channel.close_out oc
 
 (* Write a local file header and return the corresponding entry *)
 
@@ -433,7 +508,7 @@ let add_entry_header ofile extra comment level mtime filename =
   if String.length comment >= 0x10000 then
     raise(Error(ofile.of_filename, filename, "comment too long"));
   let oc = ofile.of_channel in
-  let pos = LargeFile.pos_out oc in
+  let pos = Out_channel.pos oc in
   write4 oc (Int32.of_int 0x04034b50);  (* signature *)
   let version = if level = 0 then 10 else 20 in
   write2 oc version;                    (* version needed to extract *)
@@ -481,7 +556,7 @@ let add_entry data ofile ?(extra = "") ?(comment = "")
   let compr_size =
     match level with
       0 ->
-        output_substring ofile.of_channel data 0 (String.length data);
+        Out_channel.output_substring ofile.of_channel data 0 (String.length data);
         String.length data
     | _ ->
         let in_pos = ref 0 in
@@ -495,7 +570,7 @@ let add_entry data ofile ?(extra = "") ?(comment = "")
                in_pos := !in_pos + n;
                n)
             (fun buf n ->
-                output ofile.of_channel buf 0 n;
+                Out_channel.output ofile.of_channel buf 0 n;
                 out_pos := !out_pos + n);
           !out_pos
         with Zlib.Error(_, _) ->
@@ -517,7 +592,7 @@ let copy_channel_to_entry ic ofile ?(extra = "") ?(comment = "")
           let r = input ic buf 0 (Bytes.length buf) in
           if r = 0 then sz else begin
             crc := Zlib.update_crc !crc buf 0 r;
-            output ofile.of_channel buf 0 r;
+            Out_channel.output ofile.of_channel buf 0 r;
             copy (sz + r)
           end in
         let size = copy 0 in
@@ -533,7 +608,7 @@ let copy_channel_to_entry ic ofile ?(extra = "") ?(comment = "")
                in_pos := !in_pos + r;
                r)
             (fun buf n ->
-               output ofile.of_channel buf 0 n;
+               Out_channel.output ofile.of_channel buf 0 n;
                out_pos := !out_pos + n);
           (!out_pos, !in_pos)
         with Zlib.Error(_, _) ->
@@ -581,7 +656,7 @@ let add_entry_generator ofile ?(extra = "") ?(comment = "")
   | 0 ->
       (fun buf pos len ->
         check ();
-        output ofile.of_channel buf pos len;
+        Out_channel.output ofile.of_channel buf pos len;
         compr_size := !compr_size + len;
         uncompr_size := !uncompr_size + len;
         crc := Zlib.update_crc !crc buf pos len
@@ -593,7 +668,7 @@ let add_entry_generator ofile ?(extra = "") ?(comment = "")
   | _ ->
       let (send, flush) = Zlib.compress_direct ~level ~header:false
           (fun buf n ->
-            output ofile.of_channel buf 0 n;
+            Out_channel.output ofile.of_channel buf 0 n;
             compr_size := !compr_size + n)
       in
       (fun buf pos len ->
@@ -613,3 +688,15 @@ let add_entry_generator ofile ?(extra = "") ?(comment = "")
         with Zlib.Error(_, _) ->
           raise (Error(ofile.of_filename, name, "compression error"))
       )
+end
+
+include Make_writer(struct
+  type t = Stdlib.out_channel
+  let open_out = Stdlib.open_out_bin
+  let close_out = Stdlib.close_out
+  let output_byte = Stdlib.output_byte
+  let output_string = Stdlib.output_string
+  let output_substring = Stdlib.output_substring
+  let output = Stdlib.output
+  let pos = LargeFile.pos_out
+end)

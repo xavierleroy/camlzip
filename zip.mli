@@ -49,6 +49,67 @@ type entry =
   }
           (** Description of an entry in a ZIP file. *)
 
+module type IN_CHANNEL = sig
+  type t
+  val open_in : string -> t
+  val close_in : t -> unit
+  val input_byte : t -> int
+  val input : t -> bytes -> int -> int -> int
+  val really_input : t -> bytes -> int -> int -> unit
+  val length : t -> int64
+  val pos : t -> int64
+  val seek : t -> int64 -> unit
+end
+
+module type READER = sig
+  type in_file
+  val open_in: string -> in_file
+  val entries: in_file -> entry list
+  val comment: in_file -> string
+  val find_entry: in_file -> string -> entry
+  val read_entry: in_file -> entry -> string
+  val copy_entry_to_channel: in_file -> entry -> out_channel -> unit
+  val copy_entry_to_file: in_file -> entry -> string -> unit
+  val close_in: in_file -> unit
+end
+
+module Make_reader (In_channel : IN_CHANNEL) : READER
+
+module type OUT_CHANNEL = sig
+  type t
+  val open_out: string -> t
+  val output_byte : t -> int -> unit
+  val output_string : t -> string -> unit
+  val output_substring : t -> string -> int -> int -> unit
+  val output : t -> bytes -> int -> int -> unit
+  val pos : t -> int64
+  val close_out: t -> unit
+end
+
+module type WRITER = sig
+  type out_file
+  val open_out: ?comment: string -> string -> out_file
+  val add_entry:
+    string -> out_file ->
+      ?extra: string -> ?comment: string -> ?level: int ->
+      ?mtime: float -> string -> unit
+  val copy_channel_to_entry:
+    in_channel -> out_file ->
+      ?extra: string -> ?comment: string -> ?level: int ->
+      ?mtime: float -> string -> unit
+  val copy_file_to_entry:
+    string -> out_file ->
+      ?extra: string -> ?comment: string -> ?level: int ->
+      ?mtime: float -> string -> unit
+  val add_entry_generator:
+    out_file ->
+      ?extra: string -> ?comment: string -> ?level: int ->
+      ?mtime: float -> string -> (bytes -> int -> int -> unit) * (unit -> unit)
+  val close_out: out_file -> unit
+end
+
+module Make_writer (Out_channel : OUT_CHANNEL) : WRITER
+
 (** {1 Reading from ZIP files} *)
 
 type in_file
