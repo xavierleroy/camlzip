@@ -15,8 +15,8 @@ ZLIB_INCLUDE=
 
 ### End of configuration section
 
-OCAMLC=ocamlfind ocamlc -g -safe-string -bin-annot
-OCAMLOPT=ocamlfind ocamlopt -safe-string
+OCAMLC=ocamlfind ocamlc -g -safe-string -bin-annot -package unix
+OCAMLOPT=ocamlfind ocamlopt -safe-string -package unix
 OCAMLDEP=ocamlfind ocamldep
 OCAMLMKLIB=ocamlfind ocamlmklib
 
