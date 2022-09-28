@@ -29,6 +29,8 @@ val open_in: string -> in_channel
 val open_in_chan: Stdlib.in_channel -> in_channel
        (** Open a compressed file for reading.  The argument is a
            regular file channel already opened on the compressed file. *)
+val in_channel_of_bytes: bytes -> in_channel
+       (** Read from a compressed in-memory byte buffer. *)
 val input_char: in_channel -> char
        (** Uncompress one character from the given channel, and return it.
            Raise [End_of_file] if no more compressed data is available. *)
@@ -91,6 +93,10 @@ val open_out_chan: ?level:int -> Stdlib.out_channel -> out_channel
            regular file channel already opened on the compressed file.
            The optional [level] argument sets the compression level
            as documented for [Gzip.open_out]. *)
+val open_out_fun: ?level:int -> (bytes -> int -> int -> unit) -> out_channel
+       (** Same as [open_out_chan], but writes calling the provided
+           function repeatedly (which takes a bytes buffer, a position
+           and a number of bytes). *)
 val output_char: out_channel -> char -> unit
        (** Output one character to the given compressed channel. *)
 val output_byte: out_channel -> int -> unit
