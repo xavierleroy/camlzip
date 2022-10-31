@@ -190,8 +190,8 @@ let read_ecd filename ic =
   assert (magic = Int32.of_int 0x06054b50);
   if disk_no <> 0 || cd_disk_no <> 0 then
     raise (Error(filename, "", "multi-disk ZIP files not supported"));
-  if    cd_entries = 0xffff || cd_size = 0xffff_ffffl
-     || cd_offset = 0xffff_ffffl then
+  if    cd_entries = 0xffff && cd_size = 0xffff_ffffl
+     && cd_offset = 0xffff_ffffl then
     let (cd_entries, cd_size, cd_offset) = read_ecd64 filename ic ecd_pos in
     (cd_entries, cd_size, cd_offset, comment)
   else
