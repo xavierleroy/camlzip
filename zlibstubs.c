@@ -25,7 +25,7 @@
 #include <caml/memory.h>
 #include <caml/custom.h>
 
-#define ZStream_val(v) (*((z_streamp *)Data_custom_val(v)))
+#define ZStream_val(v) (*((z_streamp *) Data_custom_val(v)))
 
 static const value * camlzip_error_exn = NULL;
 
@@ -52,32 +52,28 @@ static void camlzip_error(char * fn, value vzs)
   caml_raise(bucket);
 }
 
-void camlzip_free_stream(value vzs)
+static void camlzip_free_dstream(value vzs)
 {
+  deflateEnd(ZStream_val(vzs));
   caml_stat_free(ZStream_val(vzs));
   ZStream_val(vzs) = NULL;
 }
 
-static struct custom_operations camlzip_stream_ops = {
-  "camlzip_stream_ops", &camlzip_free_stream, NULL, NULL, NULL, NULL
+static struct custom_operations camlzip_dstream_ops = {
+  "camlzip_dstream_ops", &camlzip_free_dstream, NULL, NULL, NULL, NULL
 };
-
-static value camlzip_new_stream(void)
-{
-  value res = caml_alloc_custom(&camlzip_stream_ops, sizeof(z_streamp), 0, 1);
-
-  ZStream_val(res) = caml_stat_alloc(sizeof(z_stream));
-  ZStream_val(res)->zalloc = NULL;
-  ZStream_val(res)->zfree = NULL;
-  ZStream_val(res)->opaque = NULL;
-  ZStream_val(res)->next_in = NULL;
-  ZStream_val(res)->next_out = NULL;
-  return res;
-}
 
 value camlzip_deflateInit(value vlevel, value expect_header)
 {
-  value vzs = camlzip_new_stream();
+  value vzs =
+    caml_alloc_custom_mem(&camlzip_dstream_ops,
+                          sizeof(z_streamp), sizeof(z_stream));
+  ZStream_val(vzs) = caml_stat_alloc(sizeof(z_stream));
+  ZStream_val(vzs)->zalloc = NULL;
+  ZStream_val(vzs)->zfree = NULL;
+  ZStream_val(vzs)->opaque = NULL;
+  ZStream_val(vzs)->next_in = NULL;
+  ZStream_val(vzs)->next_out = NULL;
   if (deflateInit2(ZStream_val(vzs),
                    Int_val(vlevel),
                    Z_DEFLATED,
@@ -130,9 +126,28 @@ value camlzip_deflateEnd(value vzs)
   return Val_unit;
 }
 
+static void camlzip_free_istream(value vzs)
+{
+  inflateEnd(ZStream_val(vzs));
+  caml_stat_free(ZStream_val(vzs));
+  ZStream_val(vzs) = NULL;
+}
+
+static struct custom_operations camlzip_istream_ops = {
+  "camlzip_dstream_ops", &camlzip_free_istream, NULL, NULL, NULL, NULL
+};
+
 value camlzip_inflateInit(value expect_header)
 {
-  value vzs = camlzip_new_stream();
+  value vzs =
+    caml_alloc_custom_mem(&camlzip_istream_ops,
+                          sizeof(z_streamp), sizeof(z_stream));
+  ZStream_val(vzs) = caml_stat_alloc(sizeof(z_stream));
+  ZStream_val(vzs)->zalloc = NULL;
+  ZStream_val(vzs)->zfree = NULL;
+  ZStream_val(vzs)->opaque = NULL;
+  ZStream_val(vzs)->next_in = NULL;
+  ZStream_val(vzs)->next_out = NULL;
   if (inflateInit2(ZStream_val(vzs),
                    Bool_val(expect_header) ? MAX_WBITS : -MAX_WBITS) != Z_OK)
     camlzip_error("Zlib.inflateInit", vzs);
