@@ -69,11 +69,10 @@ value camlzip_deflateInit(value vlevel, value expect_header)
     caml_alloc_custom_mem(&camlzip_dstream_ops,
                           sizeof(z_streamp), sizeof(z_stream));
   ZStream_val(vzs) = caml_stat_alloc(sizeof(z_stream));
+  /* Zlib API: the fields zalloc, zfree and opaque must be initialized */
   ZStream_val(vzs)->zalloc = NULL;
   ZStream_val(vzs)->zfree = NULL;
   ZStream_val(vzs)->opaque = NULL;
-  ZStream_val(vzs)->next_in = NULL;
-  ZStream_val(vzs)->next_out = NULL;
   if (deflateInit2(ZStream_val(vzs),
                    Int_val(vlevel),
                    Z_DEFLATED,
@@ -142,12 +141,14 @@ value camlzip_inflateInit(value expect_header)
   value vzs =
     caml_alloc_custom_mem(&camlzip_istream_ops,
                           sizeof(z_streamp), sizeof(z_stream));
+  /* Zlib API: The fields next_in, avail_in, zalloc, zfree and opaque
+     must be initialized */
   ZStream_val(vzs) = caml_stat_alloc(sizeof(z_stream));
   ZStream_val(vzs)->zalloc = NULL;
   ZStream_val(vzs)->zfree = NULL;
   ZStream_val(vzs)->opaque = NULL;
   ZStream_val(vzs)->next_in = NULL;
-  ZStream_val(vzs)->next_out = NULL;
+  ZStream_val(vzs)->avail_in = 0;
   if (inflateInit2(ZStream_val(vzs),
                    Bool_val(expect_header) ? MAX_WBITS : -MAX_WBITS) != Z_OK)
     camlzip_error("Zlib.inflateInit", vzs);
