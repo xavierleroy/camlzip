@@ -1,7 +1,10 @@
+- #41, #42: fix memory leak when a `Zlib.stream` is finalized and
+  `Zlib.deflate_end` / `Zlib.inflate_end` was not called before
+
 Release 1.11:
 - `Zip.add_entry_generator ~level:0` was missing a CRC update
-- GPR#28: fix build on platforms with no shared libs
-- GPR#33: update META files to use plugin convention
+- #28: fix build on platforms with no shared libs
+- #33: update META files to use plugin convention
 - Use `Stdlib.xxx` instead of `Pervasives.xxx`.  OCaml >= 4.07 is required.
 - `make all` automatically builds in native-code if supported
 - Added local .opam file
@@ -9,29 +12,29 @@ Release 1.11:
 - Generate and install .mli, .cmt, and .cmti files
 
 Release 1.10:
-- GPR#25: Fix Gzip.flush_continue [James Owen]
+- #25: Fix Gzip.flush_continue [James Owen]
 - Improve compatibility with OCaml 4.09
 
 Release 1.09:
-- GPR#22: Add a Gzip.flush_continue function that allows the user to
+- #22: Add a Gzip.flush_continue function that allows the user to
   flush the contents of the zip buffer all the way to disk but then
   continue writing to the zipped channel  [James Owen]
 
 Release 1.08:
-- ocamlfind is now mandatory as a consequence of GPR#4
-- GPR#4: use ocamlfind and $(EXT_...) configuration variables for better
+- ocamlfind is now mandatory as a consequence of #4
+- #4: use ocamlfind and $(EXT_...) configuration variables for better
   cross-platform support in Makefile [user 'whitequark']
 - Improve Mingw support in Makefile (install .dll files) [Bertrand Jeannet]
-- GPR#5: make sure 'zip' and 'camlzip' packages can be used both in the
+- #5: make sure 'zip' and 'camlzip' packages can be used both in the
   same executable [Rudi Grinberg]
-- GPR#6: Z_BUF_ERROR is not a fatal error, just a transient condition
+- #6: Z_BUF_ERROR is not a fatal error, just a transient condition
   [Tuukka Korhonen]
-- GPR#13: fix memory leak in Zlib.compress_direct [Alain Frisch]
-- GPR#14: add Zlib.deflate_string and Zlib.inflate_string, using immutable
+- #13: fix memory leak in Zlib.compress_direct [Alain Frisch]
+- #14: add Zlib.deflate_string and Zlib.inflate_string, using immutable
   strings as input buffers instead of mutable bytes [Vincent Balat]
-- GPR#16: assertion failure when reading ZIP files with 2^16 entries or more
+- #16: assertion failure when reading ZIP files with 2^16 entries or more
   [Einar Lielmanis]
-- GPR#18: in Zip.open_in, properly close channels in case of error
+- #18: in Zip.open_in, properly close channels in case of error
   [Daniel Weil]
 
 Release 1.07:
