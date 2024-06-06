@@ -26,10 +26,6 @@ let read2 ic =
 let read4 ic =
   let lw = read2 ic in let hw = read2 ic in
   Int32.logor (Int32.of_int lw) (Int32.shift_left (Int32.of_int hw) 16)
-let read4_int ic =
-  let lw = read2 ic in let hw = read2 ic in
-  if hw > max_int lsr 16 then raise (Error("", "", "32-bit data too large"));
-  lw lor (hw lsl 16)
 let read8 ic =
   let ll = read4 ic in let hl = read4 ic in
   Int64.logor (int64_of_uint32 ll) (Int64.shift_left (int64_of_uint32 hl) 32)
@@ -44,9 +40,9 @@ let write2 oc n =
 let write4 oc n =
   write2 oc (Int32.to_int n);
   write2 oc (Int32.to_int (Int32.shift_right_logical n 16))
-let write4_int oc n =
-  write2 oc n;
-  write2 oc (n lsr 16)
+let write8 oc n =
+  write4 oc (Int64.to_int32 n);
+  write4 oc (Int64.to_int32 (Int64.shift_right_logical n 32))
 let writestring oc s =
   output_string oc s
 
@@ -54,7 +50,6 @@ type compression_method = Stored | Deflated
 
 type entry =
   { filename: string;
-    extra: string;
     comment: string;
     methd: compression_method;
     mtime: float;
@@ -119,39 +114,22 @@ let dostime_of_unixtime t =
      + (tm.Unix.tm_mon + 1) lsl 5
      + (tm.Unix.tm_year - 80) lsl 9)
 
-(* Read ZIP64 end of central directory record locator *)
+(* Parse the extra fields attached to some other structures *)
 
-let read_ecd64_locator filename ic ecd_pos =
-  let ecd64_locator_pos = Int64.(sub ecd_pos (of_int 20)) in
-  LargeFile.seek_in ic ecd64_locator_pos ;
-  let magic = read4 ic in
-  let _disk_no = read4 ic in
-  let ecd64_offset = read8 ic in
-  let _n_disks = read4 ic in
-  assert (magic = Int32.of_int 0x07064b50);
-  ecd64_offset
+let parse_extra_field ef =
+  let rec parse accu pos =
+    if pos + 4 > String.length ef then List.rev accu else begin
+      let id = String.get_uint16_le ef pos in
+      let sz = String.get_uint16_le ef (pos + 2) in
+      let sz = min sz (String.length ef - (pos + 4)) in
+      let data = String.sub ef (pos + 4) sz in
+      parse ((id, data) :: accu) (pos + 4 + sz)
+    end
+  in parse [] 0
 
-(* Read ZIP64 end of central directory record *)
+(* Locate the end of central directory record *)
 
-let read_ecd64 filename ic ecd_pos =
-  let ecd64_pos = read_ecd64_locator filename ic ecd_pos in
-  LargeFile.seek_in ic ecd64_pos ;
-  let magic = read4 ic in
-  let _size = read8 ic in
-  let _version_made_by = read2 ic in
-  let _version_needed = read2 ic in
-  let _n_disks = read4 ic in
-  let _cd_disk_no = read4 ic in
-  let _disk_n_entries = read8 ic in
-  let n_entries = read8 ic in
-  let cd_size = read8 ic in
-  let cd_offset = read8 ic in
-  assert (magic = Int32.of_int 0x06064b50);
-  (n_entries, cd_size, cd_offset)
-
-(* Read end of central directory record *)
-
-let read_ecd filename ic =
+let locate_ecd filename ic =
   let buf = Bytes.create 256 in
   let filelen = LargeFile.in_channel_length ic in
   let rec find_ecd pos len =
@@ -168,15 +146,64 @@ let read_ecd filename ic =
     let newlen = min (toread + len) 256 in
     (* Search for magic number *)
     let ofs = strrstr "PK\005\006" buf 0 newlen in
-    if ofs < 0 || newlen < 22 ||
-       (let comment_len =
-              (Char.code (Bytes.get buf (ofs + 20)))
-          lor ((Char.code (Bytes.get buf (ofs + 21))) lsl 8) in
-        Int64.(add newpos (of_int (ofs + 22 + comment_len))) <> filelen) then
-      find_ecd newpos newlen
-    else
-      Int64.(add newpos (of_int ofs)) in
-  let ecd_pos = find_ecd filelen 0 in
+    if ofs >= 0 && newlen >= 22 &&
+       (let comment_len = Bytes.get_uint16_le buf (ofs + 20) in
+        Int64.(add newpos (of_int (ofs + 22 + comment_len)))= filelen)
+    then Int64.(add newpos (of_int ofs))
+    else find_ecd newpos newlen
+  in find_ecd filelen 0
+
+(* Read ZIP64 end of central directory record locator *)
+
+let read_ecd64_locator filename ic ecd_pos =
+  if ecd_pos < 20L then
+    raise(Error(filename, "", "ZIP64 ECD record locator missing"));
+  let ecd64_locator_pos = Int64.(sub ecd_pos (of_int 20)) in
+  LargeFile.seek_in ic ecd64_locator_pos ;
+  let magic = read4 ic in
+  if magic <> 0x07064b50l then
+    raise(Error(filename, "", "ZIP64 ECD record locator missing"));
+  let disk_no = read4 ic in
+  let ecd64_offset = read8 ic in
+  let n_disks = read4 ic in
+  if disk_no <> 0l || n_disks <> 0l then
+    raise (Error(filename, "", "multi-disk ZIP files not supported"));
+  ecd64_offset
+
+(* Read ZIP64 end of central directory record *)
+
+type cd_info = {
+  cd_offset: int64;   (* file position of start of CD *)
+  cd_size: int64;     (* size of CD in bytes *)
+  cd_count: int64;    (* number of CD entries *)
+  ecd_comment: string
+}
+
+let read_ecd64 filename ic ecd_pos comment =
+  let ecd64_pos = read_ecd64_locator filename ic ecd_pos in
+  LargeFile.seek_in ic ecd64_pos ;
+  let magic = read4 ic in
+  if magic <> 0x06064b50l then
+    raise(Error(filename, "", "ZIP64 ECD record missing"));
+  let _size = read8 ic in
+  let _version_made_by = read2 ic in
+  let version_needed = read2 ic in
+  let n_disks = read4 ic in
+  let cd_disk_no = read4 ic in
+  let _disk_n_entries = read8 ic in
+  let cd_count = read8 ic in
+  let cd_size = read8 ic in
+  let cd_offset = read8 ic in
+  if version_needed > 45 then
+    raise(Error(filename, filename, "unsupported ZIP version"));
+  if cd_disk_no <> 0l || n_disks <> 0l then
+    raise (Error(filename, "", "multi-disk ZIP files not supported"));
+  { cd_offset; cd_size; cd_count; ecd_comment = comment }
+
+(* Read end of central directory record *)
+
+let read_ecd filename ic =
+  let ecd_pos = locate_ecd filename ic in
   LargeFile.seek_in ic ecd_pos;
   let magic = read4 ic in
   let disk_no = read2 ic in
@@ -190,69 +217,114 @@ let read_ecd filename ic =
   assert (magic = Int32.of_int 0x06054b50);
   if disk_no <> 0 || cd_disk_no <> 0 then
     raise (Error(filename, "", "multi-disk ZIP files not supported"));
-  if    cd_entries = 0xffff && cd_size = 0xffff_ffffl
-     && cd_offset = 0xffff_ffffl then
-    let (cd_entries, cd_size, cd_offset) = read_ecd64 filename ic ecd_pos in
-    (cd_entries, cd_size, cd_offset, comment)
+  if cd_offset = 0xffff_ffffl || cd_size = 0xffff_ffffl then
+    read_ecd64 filename ic ecd_pos comment
   else
-    (Int64.of_int cd_entries, int64_of_uint32 cd_size, int64_of_uint32 cd_offset, comment)
+    { cd_offset = int64_of_uint32 cd_offset;
+      cd_size = int64_of_uint32 cd_size;
+      cd_count = Int64.of_int cd_entries;
+      ecd_comment = comment }
+
+(* Fixup sizes from a ZIP64 extended information extra field *)
+
+let fixup_sizes extra uncompressed_size compressed_size offset =
+  let pos = ref 0 in
+  let process orig =
+    if orig <> 0xFFFF_FFFFl then
+      int64_of_uint32 orig
+    else begin
+      let newval = String.get_int64_le extra !pos in
+      pos := !pos + 8;
+      newval
+    end in
+  let uncompressed_size = process uncompressed_size in
+  let compressed_size = process compressed_size in
+  let offset = process offset in
+  (uncompressed_size, compressed_size, offset)
+
+(* Read central directory entry *)
+
+let read_directory_entry filename ic =
+  let magic = read4 ic in
+  if magic <> 0x02014b50l then
+    raise (Error(filename, "", "wrong file header in central directory"));
+  let _version_made_by = read2 ic in
+  let version_needed = read2 ic in
+  let flags = read2 ic in
+  let methd = read2 ic in
+  let lastmod_time = read2 ic in
+  let lastmod_date = read2 ic in
+  let crc = read4 ic in
+  let compr_size = read4 ic in
+  let uncompr_size = read4 ic in
+  let name_len = read2 ic in
+  let extra_len = read2 ic in
+  let comment_len = read2 ic in
+  let _disk_number = read2 ic in
+  let _internal_attr = read2 ic in
+  let _external_attr = read4 ic in
+  let header_offset = read4 ic in
+  let name = readstring ic name_len in
+  let extra = readstring ic extra_len in
+  let comment = readstring ic comment_len in
+  if version_needed > 45 then
+    raise(Error(filename, name, "unsupported ZIP version"));
+  if flags land 1 <> 0 then
+    raise (Error(filename, name, "encrypted entries not supported"));
+  let (uncompressed_size, compressed_size, file_offset) =
+    if compr_size <> 0xffff_ffffl
+    && uncompr_size <> 0xffff_ffffl
+    && header_offset <> 0xffff_ffffl
+    then
+      (int64_of_uint32 uncompr_size,
+       int64_of_uint32 compr_size,
+       int64_of_uint32 header_offset)
+    else begin
+      match List.assoc_opt 1 (parse_extra_field extra) with
+      | None ->
+          raise(Error(filename, name, "ZIP64 extensible data record missing"))
+      | Some e ->
+          fixup_sizes e uncompr_size compr_size header_offset
+    end in
+  let int_of_uint64 n =
+    if n >= 0L && n <= Int64.of_int max_int
+    then Int64.to_int n
+    else raise(Error(filename, name, "size too large to be represented"))
+  in
+  { filename = name;
+    comment = comment;
+    methd = (match methd with
+             | 0 -> Stored
+             | 8 -> Deflated
+             | _ -> raise (Error(filename, name,
+                                     "unknown compression method")));
+    mtime = unixtime_of_dostime lastmod_time lastmod_date;
+    crc = crc;
+    uncompressed_size = int_of_uint64 uncompressed_size;
+    compressed_size = int_of_uint64 compressed_size;
+    is_directory = filename_is_directory name;
+    file_offset
+  }  
 
 (* Read central directory *)
 
-let read_cd filename ic cd_entries cd_offset cd_bound =
+let read_cd filename ic cdinfo =
   try
-    LargeFile.seek_in ic cd_offset;
-    let e = ref [] in
+    LargeFile.seek_in ic cdinfo.cd_offset;
+    let entries = ref [] in
     let entrycnt = ref Int64.zero in
-    while (LargeFile.pos_in ic < cd_bound) do
+    let cd_bound = Int64.add cdinfo.cd_offset cdinfo.cd_size in
+    while LargeFile.pos_in ic < cd_bound do
       entrycnt := Int64.(add !entrycnt one) ;
-      let magic = read4 ic in
-      let _version_made_by = read2 ic in
-      let _version_needed = read2 ic in
-      let flags = read2 ic in
-      let methd = read2 ic in
-      let lastmod_time = read2 ic in
-      let lastmod_date = read2 ic in
-      let crc = read4 ic in
-      let compr_size = read4_int ic in
-      let uncompr_size = read4_int ic in
-      let name_len = read2 ic in
-      let extra_len = read2 ic in
-      let comment_len = read2 ic in
-      let _disk_number = read2 ic in
-      let _internal_attr = read2 ic in
-      let _external_attr = read4 ic in
-      let header_offset = int64_of_uint32 (read4 ic) in
-      let name = readstring ic name_len in
-      let extra = readstring ic extra_len in
-      let comment = readstring ic comment_len in
-      if magic <> Int32.of_int 0x02014b50 then
-        raise (Error(filename, name,
-                     "wrong file header in central directory"));
-      if flags land 1 <> 0 then
-        raise (Error(filename, name, "encrypted entries not supported"));
-
-      e := { filename = name;
-             extra = extra;
-             comment = comment;
-             methd = (match methd with
-                         0 -> Stored
-                       | 8 -> Deflated
-                       | _ -> raise (Error(filename, name,
-                                           "unknown compression method")));
-             mtime = unixtime_of_dostime lastmod_time lastmod_date;
-             crc = crc;
-             uncompressed_size = uncompr_size;
-             compressed_size = compr_size;
-             is_directory = filename_is_directory name;
-             file_offset = header_offset
-           } :: !e
+      let e = read_directory_entry filename ic in
+      entries := e :: !entries
     done;
-    assert((cd_bound = (LargeFile.pos_in ic)) &&
-           (   cd_entries = 65535L
-            || cd_entries = Int64.of_int (Int64.to_int !entrycnt land 0xffff)
-            || cd_entries = !entrycnt (* only possible for ZIP64 *))) ;
-    List.rev !e
+    if cd_bound <> LargeFile.pos_in ic
+    || (cdinfo.cd_count <> !entrycnt && cdinfo.cd_count <> 0xFFFFL)
+    then
+      raise(Error(filename, "",
+                  "wrong number of entries in central directory"));
+    List.rev !entries
   with End_of_file ->
     raise (Error(filename, "", "end-of-file while reading central directory"))
 
@@ -261,11 +333,10 @@ let read_cd filename ic cd_entries cd_offset cd_bound =
 let open_in filename =
   let ic = Stdlib.open_in_bin filename in
   try
-    let (cd_entries, cd_size, cd_offset, cd_comment) = read_ecd filename ic in
-    let entries =
-      read_cd filename ic cd_entries cd_offset (Int64.add cd_offset cd_size) in
+    let cdinfo = read_ecd filename ic in
+    let entries = read_cd filename ic cdinfo in
     let table_size =
-      match Int64.(div cd_entries (of_int 3) |> unsigned_to_int) with
+      match Int64.(div cdinfo.cd_count 3L |> unsigned_to_int) with
         Some sz -> sz
       | None -> 65535 in
     let dir = Hashtbl.create table_size in
@@ -274,7 +345,7 @@ let open_in filename =
       if_channel = ic;
       if_entries = entries;
       if_directory = dir;
-      if_comment = cd_comment }
+      if_comment = cdinfo.ecd_comment }
   with exn ->
     Stdlib.close_in ic; raise exn
 
@@ -295,18 +366,18 @@ let goto_entry ifile e =
     let ic = ifile.if_channel in
     LargeFile.seek_in ic e.file_offset;
     let magic = read4 ic in
+    if magic <> 0x04034b50l then
+       raise (Error(ifile.if_filename, e.filename, "wrong local file header"));
     let _version_needed = read2 ic in
     let _flags = read2 ic in
     let _methd = read2 ic in
     let _lastmod_time = read2 ic in
     let _lastmod_date = read2 ic in
     let _crc = read4 ic in
-    let _compr_size = read4_int ic in
-    let _uncompr_size = read4_int ic in
+    let _compr_size = read4 ic in
+    let _uncompr_size = read4 ic in
     let filename_len = read2 ic in
     let extra_len = read2 ic in
-    if magic <> Int32.of_int 0x04034b50 then
-       raise (Error(ifile.if_filename, e.filename, "wrong local file header"));
     (* Could validate information read against directory entry, but
        what the heck *)
     LargeFile.seek_in ifile.if_channel
@@ -421,10 +492,17 @@ let open_out ?(comment = "") filename =
     of_entries = [];
     of_comment = comment }
 
-(* Close a ZIP file for writing.  Add central directory. *)
+(* Close a ZIP file for writing.  Add central directory and ECD. *)
+
+let write4_cautious oc ov n =
+  write4 oc (if ov then 0xFFFF_FFFFl else Int64.to_int32 n)
 
 let write_directory_entry oc e =
-  write4 oc (Int32.of_int 0x02014b50);  (* signature *)
+  let overflow =
+       e.file_offset > 0xFFFF_FFFFL
+    || Int64.of_int e.compressed_size > 0xFFFF_FFFFL
+    || Int64.of_int e.uncompressed_size > 0xFFFF_FFFFL in
+  write4 oc 0x02014b50l;                (* signature *)
   let version = match e.methd with Stored -> 10 | Deflated -> 20 in
   write2 oc version;                    (* version made by *)
   write2 oc version;                    (* version needed to extract *)
@@ -434,68 +512,100 @@ let write_directory_entry oc e =
   write2 oc time;                       (* last mod time *)
   write2 oc date;                       (* last mod date *)
   write4 oc e.crc;                      (* CRC32 *)
-  write4_int oc e.compressed_size;      (* compressed size *)
-  write4_int oc e.uncompressed_size;    (* uncompressed size *)
+  write4_cautious oc overflow (Int64.of_int e.compressed_size);
+                                        (* compressed size *)
+  write4_cautious oc overflow (Int64.of_int e.uncompressed_size);
+                                        (* uncompressed size *)
   write2 oc (String.length e.filename); (* filename length *)
-  write2 oc (String.length e.extra);    (* extra length *)
+  write2 oc (if overflow then 28 else 0); (* extra length *)
   write2 oc (String.length e.comment);  (* comment length *)
   write2 oc 0;                          (* disk number start *)
   write2 oc 0;                          (* internal attributes *)
-  write4_int oc 0;                      (* external attributes *)
-  write4 oc (Int64.to_int32 e.file_offset); (* offset of local header *)
+  write4 oc 0l;                         (* external attributes *)
+  write4_cautious oc overflow e.file_offset;     (* offset of local header *)
   writestring oc e.filename;            (* filename *)
-  writestring oc e.extra;               (* extra info *)
+  if overflow then begin                (* extra data *)
+    write2 oc 0x0001;   (* header ID *)
+    write2 oc 24;       (* payload size *)
+    write8 oc (Int64.of_int e.uncompressed_size);
+    write8 oc (Int64.of_int e.compressed_size);
+    write8 oc e.file_offset
+  end;
   writestring oc e.comment              (* file comment *)
 
 let close_out ofile =
   let oc = ofile.of_channel in
-  let start_cd = pos_out oc in
+  let start_cd = LargeFile.pos_out oc in
   List.iter (write_directory_entry oc) (List.rev ofile.of_entries);
-  let cd_size = pos_out oc - start_cd in
+  let start_ecd = LargeFile.pos_out oc in
+  let cd_size = Int64.sub start_ecd start_cd in
   let num_entries = List.length ofile.of_entries in
-  if num_entries >= 0x10000 then
-    raise(Error(ofile.of_filename, "", "too many entries"));
-  write4 oc (Int32.of_int 0x06054b50);  (* signature *)
+  let overflow =
+       num_entries > 0xFFFF
+    || start_cd > 0xFFFF_FFFFL
+    || cd_size > 0xFFFF_FFFFL in
+  if overflow then begin
+    (* Write ZIP64 end of central directory record *)
+    write4 oc 0x06064b50l;              (* signature *)
+    write8 oc 44L;                      (* size ECD record *)
+    write2 oc 45;                       (* version made *)
+    write2 oc 45;                       (* version needed *)
+    write4 oc 0l;                       (* disk number *)
+    write4 oc 0l;                       (* CD disk number *)
+    let ne = Int64.of_int num_entries in
+    write8 oc ne;                       (* num disk entries *)
+    write8 oc ne;                       (* num entries *)
+    write8 oc cd_size;                  (* size of the CD *)
+    write8 oc start_cd;                 (* start offset for CD *)
+    (* Write ZIP64 end of central directory locator *)
+    write4 oc 0x07064b50l;              (* signature *)
+    write4 oc 0l;                       (* CD disk number *)
+    write8 oc start_ecd;                (* Position of ECD record *)
+    write4 oc 0l                        (* number of disks *)
+  end;
+  (* Write ZIP end of central directory record *)
+  write4 oc 0x06054b50l;                (* signature *)
   write2 oc 0;                          (* disk number *)
   write2 oc 0;                          (* number of disk with central dir *)
-  write2 oc num_entries;                (* # entries in this disk *)
-  write2 oc num_entries;                (* # entries in central dir *)
-  write4_int oc cd_size;                (* size of central dir *)
-  write4_int oc start_cd;               (* offset of central dir *)
+  let ne = if overflow then 0xFFFF else num_entries in
+  write2 oc ne;                         (* # entries in this disk *)
+  write2 oc ne;                         (* # entries in central dir *)
+  write4_cautious oc overflow cd_size;  (* size of central dir *)
+  write4_cautious oc overflow start_cd; (* offset of central dir *)
   write2 oc (String.length ofile.of_comment); (* length of comment *)
   writestring oc ofile.of_comment;         (* comment *)
   Stdlib.close_out oc
 
 (* Write a local file header and return the corresponding entry *)
 
-let add_entry_header ofile extra comment level mtime filename =
+let add_entry_header ofile comment level mtime filename =
   if level < 0 || level > 9 then
     raise(Error(ofile.of_filename, filename, "wrong compression level"));
   if String.length filename >= 0x10000 then
     raise(Error(ofile.of_filename, filename, "filename too long"));
-  if String.length extra >= 0x10000 then
-    raise(Error(ofile.of_filename, filename, "extra data too long"));
   if String.length comment >= 0x10000 then
     raise(Error(ofile.of_filename, filename, "comment too long"));
   let oc = ofile.of_channel in
   let pos = LargeFile.pos_out oc in
-  write4 oc (Int32.of_int 0x04034b50);  (* signature *)
+  write4 oc 0x04034b50l;                (* signature *)
   let version = if level = 0 then 10 else 20 in
   write2 oc version;                    (* version needed to extract *)
-  write2 oc 8;                          (* flags *)
+  write2 oc 0;                          (* flags *)
   write2 oc (if level = 0 then 0 else 8); (* method *)
   let (time, date) = dostime_of_unixtime mtime in
   write2 oc time;                       (* last mod time *)
   write2 oc date;                       (* last mod date *)
-  write4 oc Int32.zero;                 (* CRC32 - to be filled later *)
-  write4_int oc 0;                      (* compressed size - later *)
-  write4_int oc 0;                      (* uncompressed size - later *)
+  write4 oc 0l;                         (* CRC32 - to be filled later *)
+  write4 oc 0l;                         (* compressed size - later *)
+  write4 oc 0l;                         (* uncompressed size - later *)
   write2 oc (String.length filename);   (* filename length *)
-  write2 oc (String.length extra);      (* extra length *)
+  write2 oc 20;                         (* extra length *)
   writestring oc filename;              (* filename *)
-  writestring oc extra;                 (* extra info *)
+  write2 oc 0x0001;                     (* extra data - header ID *)
+  write2 oc 16;                         (* payload size *)
+  write8 oc 0L;                         (* compressed size - later *)
+  write8 oc 0L;                         (* uncompressed size - later *)
   { filename = filename;
-    extra = extra;
     comment = comment;
     methd = (if level = 0 then Stored else Deflated);
     mtime = mtime;
@@ -505,23 +615,36 @@ let add_entry_header ofile extra comment level mtime filename =
     is_directory = filename_is_directory filename;
     file_offset = pos }
 
-(* Write a data descriptor and update the entry *)
+(* Write the correct sizes and CRC in the local file header
+   and update the entry *)
 
-let add_data_descriptor ofile crc compr_size uncompr_size entry =
+let update_entry ofile crc compr_size uncompr_size entry =
+  let csz = Int64.of_int compr_size
+  and usz = Int64.of_int uncompr_size in
+  let overflow = csz > 0xFFFF_FFFFL || usz > 0xFFFF_FFFFL in
   let oc = ofile.of_channel in
-  write4 oc (Int32.of_int 0x08074b50);  (* signature *)
+  let cur = LargeFile.pos_out oc in
+  LargeFile.seek_out oc (Int64.add entry.file_offset 14L);
   write4 oc crc;                        (* CRC *)
-  write4_int oc compr_size;             (* compressed size *)
-  write4_int oc uncompr_size;           (* uncompressed size *)
+  write4_cautious oc overflow csz;      (* compressed size *)
+  write4_cautious oc overflow usz;      (* uncompressed size *)
+  if overflow then begin
+    LargeFile.seek_out oc
+      Int64.(add entry.file_offset
+                 (of_int (30 + String.length entry.filename + 4)));
+    write8 oc csz;                        (* compressed size *)
+    write8 oc usz                         (* uncompressed size *)
+  end;
+  LargeFile.seek_out oc cur;
   { entry with crc = crc;
                uncompressed_size = uncompr_size;
                compressed_size = compr_size }
 
 (* Add an entry with the contents of a string *)
 
-let add_entry data ofile ?(extra = "") ?(comment = "")
+let add_entry data ofile ?(comment = "")
                          ?(level = 6) ?(mtime = Unix.time()) name =
-  let e = add_entry_header ofile extra comment level mtime name in
+  let e = add_entry_header ofile comment level mtime name in
   let crc = Zlib.update_crc_string Int32.zero data 0 (String.length data) in
   let compr_size =
     match level with
@@ -545,14 +668,14 @@ let add_entry data ofile ?(extra = "") ?(comment = "")
           !out_pos
         with Zlib.Error(_, _) ->
           raise (Error(ofile.of_filename, name, "compression error")) in
-  let e' = add_data_descriptor ofile crc compr_size (String.length data) e in
+  let e' = update_entry ofile crc compr_size (String.length data) e in
   ofile.of_entries <- e' :: ofile.of_entries
 
 (* Add an entry with the contents of an in channel *)
 
-let copy_channel_to_entry ic ofile ?(extra = "") ?(comment = "")
+let copy_channel_to_entry ic ofile ?(comment = "")
                                    ?(level = 6) ?(mtime = Unix.time()) name =
-  let e = add_entry_header ofile extra comment level mtime name in
+  let e = add_entry_header ofile comment level mtime name in
   let crc = ref Int32.zero in
   let (compr_size, uncompr_size) =
     match level with
@@ -583,12 +706,12 @@ let copy_channel_to_entry ic ofile ?(extra = "") ?(comment = "")
           (!out_pos, !in_pos)
         with Zlib.Error(_, _) ->
           raise (Error(ofile.of_filename, name, "compression error")) in
-  let e' = add_data_descriptor ofile !crc compr_size uncompr_size e in
+  let e' = update_entry ofile !crc compr_size uncompr_size e in
   ofile.of_entries <- e' :: ofile.of_entries
 
 (* Add an entry with the contents of a file *)
 
-let copy_file_to_entry infilename ofile ?(extra = "") ?(comment = "")
+let copy_file_to_entry infilename ofile ?(comment = "")
                                         ?(level = 6) ?mtime name =
   let ic = open_in_bin infilename in
   let mtime' =
@@ -598,7 +721,7 @@ let copy_file_to_entry infilename ofile ?(extra = "") ?(comment = "")
         try Some((Unix.stat infilename).Unix.st_mtime)
         with Unix.Unix_error(_,_,_) -> None in
   try
-    copy_channel_to_entry ic ofile ~extra ~comment ~level ?mtime:mtime' name;
+    copy_channel_to_entry ic ofile ~comment ~level ?mtime:mtime' name;
     Stdlib.close_in ic
   with x ->
     Stdlib.close_in ic; raise x
@@ -606,9 +729,9 @@ let copy_file_to_entry infilename ofile ?(extra = "") ?(comment = "")
 
 (* Add an entry whose content will be produced by the caller *)
 
-let add_entry_generator ofile ?(extra = "") ?(comment = "")
-                         ?(level = 6) ?(mtime = Unix.time()) name =
-  let e = add_entry_header ofile extra comment level mtime name in
+let add_entry_generator ofile ?(comment = "")
+                              ?(level = 6) ?(mtime = Unix.time()) name =
+  let e = add_entry_header ofile comment level mtime name in
   let crc = ref Int32.zero in
   let compr_size = ref 0 in
   let uncompr_size = ref 0 in
@@ -619,7 +742,7 @@ let add_entry_generator ofile ?(extra = "") ?(comment = "")
   in
   let finish () =
     finished := true;
-    let e' = add_data_descriptor ofile !crc !compr_size !uncompr_size e in
+    let e' = update_entry ofile !crc !compr_size !uncompr_size e in
     ofile.of_entries <- e' :: ofile.of_entries
   in
   match level with
