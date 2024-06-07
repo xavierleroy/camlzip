@@ -17,6 +17,9 @@
 
 exception Error of string * string * string
 
+let int64_of_uint32 n =
+  Int64.(logand (of_int32 n) 0xFFFF_FFFFL)
+
 let read1 = input_byte
 let read2 ic =
   let lb = read1 ic in let hb = read1 ic in lb lor (hb lsl 8)
@@ -27,6 +30,10 @@ let read4_int ic =
   let lw = read2 ic in let hw = read2 ic in
   if hw > max_int lsr 16 then raise (Error("", "", "32-bit data too large"));
   lw lor (hw lsl 16)
+let read8 ic =
+  let ll = read4 ic in let hl = read4 ic in
+  Int64.logor (int64_of_uint32 ll) (Int64.shift_left (int64_of_uint32 hl) 32)
+
 let readstring ic n =
   let s = Bytes.create n in
   really_input ic s 0 n; Bytes.unsafe_to_string s
@@ -112,6 +119,36 @@ let dostime_of_unixtime t =
      + (tm.Unix.tm_mon + 1) lsl 5
      + (tm.Unix.tm_year - 80) lsl 9)
 
+(* Read ZIP64 end of central directory record locator *)
+
+let read_ecd64_locator filename ic ecd_pos =
+  let ecd64_locator_pos = Int64.(sub ecd_pos (of_int 20)) in
+  LargeFile.seek_in ic ecd64_locator_pos ;
+  let magic = read4 ic in
+  let _disk_no = read4 ic in
+  let ecd64_offset = read8 ic in
+  let _n_disks = read4 ic in
+  assert (magic = Int32.of_int 0x07064b50);
+  ecd64_offset
+
+(* Read ZIP64 end of central directory record *)
+
+let read_ecd64 filename ic ecd_pos =
+  let ecd64_pos = read_ecd64_locator filename ic ecd_pos in
+  LargeFile.seek_in ic ecd64_pos ;
+  let magic = read4 ic in
+  let _size = read8 ic in
+  let _version_made_by = read2 ic in
+  let _version_needed = read2 ic in
+  let _n_disks = read4 ic in
+  let _cd_disk_no = read4 ic in
+  let _disk_n_entries = read8 ic in
+  let n_entries = read8 ic in
+  let cd_size = read8 ic in
+  let cd_offset = read8 ic in
+  assert (magic = Int32.of_int 0x06064b50);
+  (n_entries, cd_size, cd_offset)
+
 (* Read end of central directory record *)
 
 let read_ecd filename ic =
@@ -139,7 +176,8 @@ let read_ecd filename ic =
       find_ecd newpos newlen
     else
       Int64.(add newpos (of_int ofs)) in
-  LargeFile.seek_in ic (find_ecd filelen 0);
+  let ecd_pos = find_ecd filelen 0 in
+  LargeFile.seek_in ic ecd_pos;
   let magic = read4 ic in
   let disk_no = read2 ic in
   let cd_disk_no = read2 ic in
@@ -152,21 +190,22 @@ let read_ecd filename ic =
   assert (magic = Int32.of_int 0x06054b50);
   if disk_no <> 0 || cd_disk_no <> 0 then
     raise (Error(filename, "", "multi-disk ZIP files not supported"));
-  (cd_entries, cd_size, cd_offset, comment)
+  if    cd_entries = 0xffff && cd_size = 0xffff_ffffl
+     && cd_offset = 0xffff_ffffl then
+    let (cd_entries, cd_size, cd_offset) = read_ecd64 filename ic ecd_pos in
+    (cd_entries, cd_size, cd_offset, comment)
+  else
+    (Int64.of_int cd_entries, int64_of_uint32 cd_size, int64_of_uint32 cd_offset, comment)
 
 (* Read central directory *)
 
-let int64_of_uint32 n =
-  Int64.(logand (of_int32 n) 0xFFFF_FFFFL)
-
 let read_cd filename ic cd_entries cd_offset cd_bound =
-  let cd_bound = int64_of_uint32 cd_bound in
   try
-    LargeFile.seek_in ic (int64_of_uint32 cd_offset);
+    LargeFile.seek_in ic cd_offset;
     let e = ref [] in
-    let entrycnt = ref 0 in
+    let entrycnt = ref Int64.zero in
     while (LargeFile.pos_in ic < cd_bound) do
-      incr entrycnt;
+      entrycnt := Int64.(add !entrycnt one) ;
       let magic = read4 ic in
       let _version_made_by = read2 ic in
       let _version_needed = read2 ic in
@@ -210,7 +249,9 @@ let read_cd filename ic cd_entries cd_offset cd_bound =
            } :: !e
     done;
     assert((cd_bound = (LargeFile.pos_in ic)) &&
-           (cd_entries = 65535 || cd_entries = !entrycnt land 0xffff));
+           (   cd_entries = 65535L
+            || cd_entries = Int64.of_int (Int64.to_int !entrycnt land 0xffff)
+            || cd_entries = !entrycnt (* only possible for ZIP64 *))) ;
     List.rev !e
   with End_of_file ->
     raise (Error(filename, "", "end-of-file while reading central directory"))
@@ -222,8 +263,12 @@ let open_in filename =
   try
     let (cd_entries, cd_size, cd_offset, cd_comment) = read_ecd filename ic in
     let entries =
-      read_cd filename ic cd_entries cd_offset (Int32.add cd_offset cd_size) in
-    let dir = Hashtbl.create (cd_entries / 3) in
+      read_cd filename ic cd_entries cd_offset (Int64.add cd_offset cd_size) in
+    let table_size =
+      match Int64.(div cd_entries (of_int 3) |> unsigned_to_int) with
+        Some sz -> sz
+      | None -> 65535 in
+    let dir = Hashtbl.create table_size in
     List.iter (fun e -> Hashtbl.add dir e.filename e) entries;
     { if_filename = filename;
       if_channel = ic;
