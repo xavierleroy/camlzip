@@ -31,13 +31,12 @@
 (** {1 Information on ZIP entries} *)
 
 type compression_method =
-    Stored                     (** data is stored without compression *)
+  | Stored                     (** data is stored without compression *)
   | Deflated                   (** data is compressed with the ``deflate'' algorithm *)
         (** Indicate whether the data in the entry is compressed or not. *)
 
 type entry =
   { filename: string;          (** file name for entry *)
-    extra: string;             (** extra information attached to entry *)
     comment: string;           (** comment attached to entry *)
     methd: compression_method; (** compression method *)
     mtime: float;              (** last modification time (seconds since epoch) *)
@@ -105,8 +104,8 @@ val open_out: ?comment: string -> string -> out_file
               ZIP entries). *) 
 val add_entry:
   string -> out_file -> 
-    ?extra: string -> ?comment: string -> ?level: int ->
-    ?mtime: float -> string -> unit
+    ?comment: string -> ?level: int -> ?mtime: float ->
+    string -> unit
           (** [Zip.add_entry data zf name] adds a new entry to the 
               ZIP file [zf].  The data (file contents) associated with
               the entry is taken from the string [data].  It is compressed
@@ -114,8 +113,6 @@ val add_entry:
               stored along with this entry.  Several optional arguments
               can be provided to control the format and attached information 
               of the entry:
-              @param extra  extra data attached to the entry (a string).
-                Default: empty.
               @param comment  attached to the entry (a string).
                 Default: empty.
               @param level  compression level for the entry.  This is an
@@ -129,15 +126,15 @@ val add_entry:
                 Default: the current time. *)
 val copy_channel_to_entry:
   in_channel -> out_file -> 
-    ?extra: string -> ?comment: string -> ?level: int ->
-    ?mtime: float -> string -> unit
+    ?comment: string -> ?level: int -> ?mtime: float ->
+    string -> unit
           (** Same as [Zip.add_entry], but the data associated with the
               entry is read from the input channel given as first argument.
               The channel is read up to end of file. *)
 val copy_file_to_entry:
   string -> out_file -> 
-    ?extra: string -> ?comment: string -> ?level: int ->
-    ?mtime: float -> string -> unit
+    ?comment: string -> ?level: int -> ?mtime: float ->
+    string -> unit
           (** Same as [Zip.add_entry], but the data associated with the
               entry is read from the file whose name is given as first
               argument.  Also, the default value for the [mtime]
@@ -145,8 +142,8 @@ val copy_file_to_entry:
               file. *)
 val add_entry_generator:
   out_file ->
-    ?extra: string -> ?comment: string -> ?level: int ->
-    ?mtime: float -> string -> (bytes -> int -> int -> unit) * (unit -> unit)
+    ?comment: string -> ?level: int -> ?mtime: float -> 
+    string -> (bytes -> int -> int -> unit) * (unit -> unit)
           (** [Zip.add_entry_generator zf name] returns a pair of functions
               [(add, finish)].  It adds a new entry to the 
               ZIP file [zf].  The file name stored along with this entry
