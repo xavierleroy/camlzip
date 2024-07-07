@@ -1,3 +1,5 @@
+Release 1.12:
+- #35, #43: add full support for ZIP64 archives [Jules Villard and Xavier Leroy]
 - #41, #42: fix memory leak when a `Zlib.stream` is finalized and
   `Zlib.deflate_end` / `Zlib.inflate_end` was not called before
 
