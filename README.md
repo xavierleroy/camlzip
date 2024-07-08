@@ -6,7 +6,7 @@ This Objective Caml library provides easy access to compressed files in ZIP and 
 
 ## REQUIREMENTS
 
-* Objective Caml 4.07 or up.
+* Objective Caml 4.13 or up.
 
 * The Findlib / ocamlfind library manager.
 
