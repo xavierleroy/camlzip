@@ -402,9 +402,9 @@ let read_entry ifile e =
         let in_avail = ref e.compressed_size in
         let out_pos = ref 0 in
         if e.uncompressed_size = 0 then
-          (* Empty zip entries may be marked as deflated *)
-          String.empty
-        else (
+          (* Empty zip entries may be marked as deflated (#44) *)
+          ""
+        else begin
           begin try
             Zlib.uncompress ~header:false
               (fun buf ->
@@ -428,7 +428,7 @@ let read_entry ifile e =
           if crc <> e.crc then
             raise (Error(ifile.if_filename, e.filename, "CRC mismatch"));
           Bytes.unsafe_to_string res
-          )
+        end
   with End_of_file ->
     raise (Error(ifile.if_filename, e.filename, "truncated data"))
 
