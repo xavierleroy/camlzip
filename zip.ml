@@ -401,29 +401,34 @@ let read_entry ifile e =
     | Deflated ->
         let in_avail = ref e.compressed_size in
         let out_pos = ref 0 in
-        begin try
-          Zlib.uncompress ~header:false
-            (fun buf ->
-              let read = input ifile.if_channel buf 0
-                               (min !in_avail (Bytes.length buf)) in
-              in_avail := !in_avail - read;
-              read)
-            (fun buf len ->
-              if !out_pos + len > Bytes.length res then
-                raise (Error(ifile.if_filename, e.filename,
-                             "wrong size for deflated entry (too much data)"));
-              Bytes.blit buf 0 res !out_pos len;
-              out_pos := !out_pos + len)
-        with Zlib.Error(_, _) ->
-          raise (Error(ifile.if_filename, e.filename, "decompression error"))
-        end;
-        if !out_pos <> Bytes.length res then
-          raise (Error(ifile.if_filename, e.filename,
-                       "wrong size for deflated entry (not enough data)"));
-        let crc = Zlib.update_crc Int32.zero res 0 (Bytes.length res) in
-        if crc <> e.crc then
-          raise (Error(ifile.if_filename, e.filename, "CRC mismatch"));
-        Bytes.unsafe_to_string res
+        if e.uncompressed_size = 0 then
+          (* Empty zip entries may be marked as deflated (#44) *)
+          ""
+        else begin
+          begin try
+            Zlib.uncompress ~header:false
+              (fun buf ->
+                let read = input ifile.if_channel buf 0
+                                (min !in_avail (Bytes.length buf)) in
+                in_avail := !in_avail - read;
+                read)
+              (fun buf len ->
+                if !out_pos + len > Bytes.length res then
+                  raise (Error(ifile.if_filename, e.filename,
+                              "wrong size for deflated entry (too much data)"));
+                Bytes.blit buf 0 res !out_pos len;
+                out_pos := !out_pos + len)
+          with Zlib.Error(_, _) ->
+            raise (Error(ifile.if_filename, e.filename, "decompression error"))
+          end;
+          if !out_pos <> Bytes.length res then
+            raise (Error(ifile.if_filename, e.filename,
+                        "wrong size for deflated entry (not enough data)"));
+          let crc = Zlib.update_crc Int32.zero res 0 (Bytes.length res) in
+          if crc <> e.crc then
+            raise (Error(ifile.if_filename, e.filename, "CRC mismatch"));
+          Bytes.unsafe_to_string res
+        end
   with End_of_file ->
     raise (Error(ifile.if_filename, e.filename, "truncated data"))
 
