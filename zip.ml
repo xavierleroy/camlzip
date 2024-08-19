@@ -380,8 +380,13 @@ let goto_entry ifile e =
     let extra_len = read2 ic in
     (* Could validate information read against directory entry, but
        what the heck *)
-    LargeFile.seek_in ifile.if_channel
-      (Int64.add e.file_offset (Int64.of_int (30 + filename_len + extra_len)))
+    let offset = (Int64.add e.file_offset 
+                            (Int64.of_int (30 + filename_len + extra_len))) in
+    if offset > (LargeFile.in_channel_length ifile.if_channel) 
+    || offset < 0L then
+      raise (Error(ifile.if_filename, e.filename, 
+                  "local file header pointing outside zip archive"));
+    LargeFile.seek_in ifile.if_channel offset
   with End_of_file ->
     raise (Error(ifile.if_filename, e.filename, "truncated local file header"))
 
