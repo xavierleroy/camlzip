@@ -418,8 +418,9 @@ let read_entry ifile e =
                               "wrong size for deflated entry (too much data)"));
                 Bytes.blit buf 0 res !out_pos len;
                 out_pos := !out_pos + len)
-          with Zlib.Error(_, _) ->
-            raise (Error(ifile.if_filename, e.filename, "decompression error"))
+          with Zlib.Error(_, msg) ->
+            raise (Error(ifile.if_filename, e.filename,
+                         "decompression error: " ^ msg))
           end;
           if !out_pos <> Bytes.length res then
             raise (Error(ifile.if_filename, e.filename,
@@ -463,8 +464,9 @@ let copy_entry_to_channel ifile e oc =
             (fun buf len ->
               output oc buf 0 len;
               crc := Zlib.update_crc !crc buf 0 len)
-        with Zlib.Error(_, _) ->
-          raise (Error(ifile.if_filename, e.filename, "decompression error"))
+        with Zlib.Error(_, msg) ->
+          raise (Error(ifile.if_filename, e.filename,
+                       "decompression error: " ^ msg))
         end;
         if !crc <> e.crc then
           raise (Error(ifile.if_filename, e.filename, "CRC mismatch"))
@@ -671,8 +673,9 @@ let add_entry data ofile ?(comment = "")
                 output ofile.of_channel buf 0 n;
                 out_pos := !out_pos + n);
           !out_pos
-        with Zlib.Error(_, _) ->
-          raise (Error(ofile.of_filename, name, "compression error")) in
+        with Zlib.Error(_, msg) ->
+          raise (Error(ofile.of_filename, name,
+                       "compression error: " ^ msg)) in
   let e' = update_entry ofile crc compr_size (String.length data) e in
   ofile.of_entries <- e' :: ofile.of_entries
 
@@ -709,8 +712,9 @@ let copy_channel_to_entry ic ofile ?(comment = "")
                output ofile.of_channel buf 0 n;
                out_pos := !out_pos + n);
           (!out_pos, !in_pos)
-        with Zlib.Error(_, _) ->
-          raise (Error(ofile.of_filename, name, "compression error")) in
+        with Zlib.Error(_, msg) ->
+          raise (Error(ofile.of_filename, name,
+                       "compression error: " ^ msg)) in
   let e' = update_entry ofile !crc compr_size uncompr_size e in
   ofile.of_entries <- e' :: ofile.of_entries
 
@@ -775,14 +779,16 @@ let add_entry_generator ofile ?(comment = "")
           send buf pos len;
           uncompr_size := !uncompr_size + len;
           crc := Zlib.update_crc !crc buf pos len
-        with Zlib.Error(_, _) ->
-          raise (Error(ofile.of_filename, name, "compression error"))
+        with Zlib.Error(_, msg) ->
+          raise (Error(ofile.of_filename, name,
+                       "compression error: " ^ msg))
       ),
       (fun () ->
         check ();
         try
           flush ();
           finish ()
-        with Zlib.Error(_, _) ->
-          raise (Error(ofile.of_filename, name, "compression error"))
+        with Zlib.Error(_, msg) ->
+          raise (Error(ofile.of_filename, name,
+                       "compression error: " ^ msg))
       )
