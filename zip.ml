@@ -497,6 +497,41 @@ let open_out ?(comment = "") filename =
     of_entries = [];
     of_comment = comment }
 
+(* Open an existing ZIP file for updating *)
+
+let open_update ?comment filename =
+  let fd =
+    try Unix.openfile filename [Unix.O_RDWR] 0
+    with Unix.Unix_error(code, _, _) ->
+      raise (Sys_error (filename ^ ": " ^ Unix.error_message code)) in
+  let ic = Unix.in_channel_of_descr fd in
+  try 
+    let cdinfo = read_ecd filename ic in
+    let entries = read_cd filename ic cdinfo in
+    Unix.LargeFile.ftruncate fd cdinfo.cd_offset;
+    ignore (Unix.LargeFile.lseek fd 0L Unix.SEEK_END);
+    { of_filename = filename;
+      of_channel = Unix.out_channel_of_descr fd;
+      of_entries = entries;
+      of_comment = Option.value comment ~default:cdinfo.ecd_comment }
+  with exn ->
+    Stdlib.close_in ic; raise exn
+
+(* Reverse list of entries, removing duplicate file names.
+   Keep only the most recent entry for a given name, i.e. the one that occurs
+   first in the input list. *)
+
+module StringSet = Set.Make(String)
+
+let rev_uniq entries =
+  let rec rev accu seen = function
+    | [] -> accu
+    | e :: l ->
+        if StringSet.mem e.filename seen
+        then rev accu seen l
+        else rev (e :: accu) (StringSet.add e.filename seen) l
+  in rev [] StringSet.empty entries
+
 (* Close a ZIP file for writing.  Add central directory and ECD. *)
 
 let write4_cautious oc ov n =
@@ -541,10 +576,11 @@ let write_directory_entry oc e =
 let close_out ofile =
   let oc = ofile.of_channel in
   let start_cd = LargeFile.pos_out oc in
-  List.iter (write_directory_entry oc) (List.rev ofile.of_entries);
+  let entries = rev_uniq ofile.of_entries in
+  List.iter (write_directory_entry oc) entries;
   let start_ecd = LargeFile.pos_out oc in
   let cd_size = Int64.sub start_ecd start_cd in
-  let num_entries = List.length ofile.of_entries in
+  let num_entries = List.length entries in
   let overflow =
        num_entries > 0xFFFF
     || start_cd > 0xFFFF_FFFFL
