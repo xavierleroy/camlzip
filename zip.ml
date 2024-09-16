@@ -588,8 +588,14 @@ let add_entry_header ofile comment level mtime filename =
     raise(Error(ofile.of_filename, filename, "wrong compression level"));
   if String.length filename >= 0x10000 then
     raise(Error(ofile.of_filename, filename, "filename too long"));
+  if not (Filename.is_relative filename) then
+    raise(Error(ofile.of_filename, filename, "file name must not be absolute"));
   if String.length comment >= 0x10000 then
     raise(Error(ofile.of_filename, filename, "comment too long"));
+  let filename =
+    if Sys.os_type = "Win32"   (* normalize directory separators *)
+    then String.map (function '\\' -> '/' | c -> c) filename
+    else filename in
   let oc = ofile.of_channel in
   let pos = LargeFile.pos_out oc in
   write4 oc 0x04034b50l;                (* signature *)

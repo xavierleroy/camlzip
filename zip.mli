@@ -110,9 +110,10 @@ val add_entry:
               ZIP file [zf].  The data (file contents) associated with
               the entry is taken from the string [data].  It is compressed
               and written to the ZIP file [zf].  [name] is the file name
-              stored along with this entry.  Several optional arguments
-              can be provided to control the format and attached information 
-              of the entry:
+              stored along with this entry. 
+
+              Several optional arguments can be provided to control
+              the format and attached information of the entry:
               @param comment  attached to the entry (a string).
                 Default: empty.
               @param level  compression level for the entry.  This is an
@@ -123,7 +124,12 @@ val add_entry:
                 Default: 6 (moderate compression).
               @param mtime  last modification time (in seconds since the
                 epoch).
-                Default: the current time. *)
+                Default: the current time.
+
+              Under Windows, backslash characters [\] in the [name] parameter
+              are stored in the ZIP file as forward slashes [/], for
+              compatibility with other operating systems. *)
+
 val copy_channel_to_entry:
   in_channel -> out_file -> 
     ?comment: string -> ?level: int -> ?mtime: float ->
