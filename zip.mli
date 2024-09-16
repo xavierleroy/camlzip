@@ -102,6 +102,15 @@ val open_out: ?comment: string -> string -> out_file
               comment string that is attached to the ZIP file as a whole
               (as opposed to the comments that can be attached to individual
               ZIP entries). *) 
+val open_update: ?comment: string -> string -> out_file
+          (** Open the ZIP file with the given filename, preserving its
+              contents.  Return a handle opened for writing to this file.
+              Entries added via this handle will be added to the existing
+              entries.  If an entry is added with the same file name as
+              an existing entry, the old entry becomes inaccessible, only
+              the new entry remains.
+              The optional argument [comment], if present, replaces the
+              comment that was attached to the original ZIP file. *)
 val add_entry:
   string -> out_file -> 
     ?comment: string -> ?level: int -> ?mtime: float ->
