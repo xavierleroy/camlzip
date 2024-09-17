@@ -75,12 +75,19 @@ let create zipfile files =
   Array.iter (add_entry oc) files;
   Zip.close_out oc
 
+let append zipfile files =
+  let oc = Zip.open_update zipfile in
+  Array.iter (add_entry oc) files;
+  Zip.close_out oc
+
 let usage() =
   prerr_string
-"Usage: 
+{|Usage: 
   minizip t <zipfile>           show contents of <zipfile>
   minizip x <zipfile>           extract files from <zipfile>
-  minizip c <zipfile> <file> .. create a <zipfile> with the given files\n";
+  minizip c <zipfile> <file> .. create a <zipfile> with the given files
+  minizip a <zipfile> <file> .. add the given files to <zipfile>
+|};
   exit 2
 
 let _ =
@@ -89,5 +96,7 @@ let _ =
     "t" -> list Sys.argv.(2)
   | "x" -> extract Sys.argv.(2)
   | "c" -> create Sys.argv.(2)
+                  (Array.sub Sys.argv 3 (Array.length Sys.argv - 3))
+  | "a" -> append Sys.argv.(2)
                   (Array.sub Sys.argv 3 (Array.length Sys.argv - 3))
   | _ -> usage()
