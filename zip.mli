@@ -54,8 +54,9 @@ type in_file
           (** Abstract type representing a handle opened for reading from
               a ZIP file. *)
 val open_in: string -> in_file
-          (** Open the ZIP file with the given filename.  Return a
-              handle opened for reading from this file. *)
+          (** [Zip.open_in zipfilename] opens the ZIP file with the given
+              filename.  The file must already exist.
+              Return a handle opened for reading from this file. *)
 val entries: in_file -> entry list
           (** Return a list of all entries in the given ZIP file. *)
 val comment: in_file -> string
@@ -96,21 +97,22 @@ type out_file
           (** Abstract type representing a handle opened for writing to
               a ZIP file. *)
 val open_out: ?comment: string -> string -> out_file
-          (** Create (or truncate to zero length) the ZIP file with
-              the given filename.  Return a handle opened for writing
-              to this file.  The optional argument [comment] is a
-              comment string that is attached to the ZIP file as a whole
-              (as opposed to the comments that can be attached to individual
-              ZIP entries). *) 
+          (** [Zip.open_out zipfilename] creates (or truncates to zero length)
+              the ZIP file with the given filename.
+              Return a handle opened for writing to this file.
+              @param comment  comment string attached to the ZIP file as
+                as whole.  Default: empty. *)
 val open_update: ?comment: string -> string -> out_file
-          (** Open the ZIP file with the given filename, preserving its
-              contents.  Return a handle opened for writing to this file.
+          (** [Zip.open_update zipfilename] opens the ZIP file with the
+              given filename, preserving its contents.  The file must already
+              exist.  Return a handle opened for writing to this file.
               Entries added via this handle will be added to the existing
               entries.  If an entry is added with the same file name as
               an existing entry, the old entry becomes inaccessible, only
               the new entry remains.
-              The optional argument [comment], if present, replaces the
-              comment that was attached to the original ZIP file. *)
+              @param comment  comment string attached to the ZIP file as
+                as whole.  Default: keep the comment that was attached
+                to the original ZIP file. *)
 val add_entry:
   string -> out_file -> 
     ?comment: string -> ?level: int -> ?mtime: float ->
