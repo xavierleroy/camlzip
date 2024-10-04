@@ -106,22 +106,30 @@ let uncompress ?(header = true) refill flush =
   let rec uncompr inpos inavail =
     if inavail = 0 then begin
       let incount = refill inbuf in
-      if incount = 0 then uncompr_finish true else uncompr 0 incount
+      if incount = 0 then uncompr_finish 0 else uncompr 0 incount
     end else begin
       let (finished, used_in, used_out) =
         inflate zs inbuf inpos inavail outbuf 0 buffer_size Z_SYNC_FLUSH in
       flush outbuf used_out;
       if not finished then uncompr (inpos + used_in) (inavail - used_in)
     end
-  and uncompr_finish first_finish =
+  and uncompr_finish num_round =
     (* Gotcha: if there is no header, inflate requires an extra "dummy" byte
        after the compressed stream in order to complete decompression
        and return finished = true. *)
-    let dummy_byte = if first_finish && not header then 1 else 0 in
+    let dummy_byte = if num_round = 0 && not header then 1 else 0 in
     let (finished, _, used_out) =
        inflate zs inbuf 0 dummy_byte outbuf 0 buffer_size Z_SYNC_FLUSH in
     flush outbuf used_out;
-    if not finished then uncompr_finish false
+    if finished then ()
+    else if used_out > 0 then uncompr_finish 1
+    else if num_round < 10 then uncompr_finish (num_round + 1)
+    else
+      (* Gotcha: truncated input can cause an infinite loop where
+         [inflate] doesn't produce output and never returns "finished".
+         Raise an error after too many calls to [inflate] that produced
+         no output. *)
+      raise(Error("Zlib.uncompress", "truncated input data"))
   in
     uncompr 0 0;
     inflate_end zs
