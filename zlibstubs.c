@@ -25,6 +25,7 @@
 #include <caml/memory.h>
 #include <caml/custom.h>
 #include <caml/bigarray.h>
+#include <caml/threads.h>
 
 #define ZStream_val(v) (*((z_streamp *) Data_custom_val(v)))
 
@@ -129,13 +130,15 @@ value camlzip_deflate_bigstring(value vzs, value srcbuf, value srcpos, value src
   zs->avail_in = Long_val(srclen);
   zs->next_out = (unsigned char *) ba_dst->data + Long_val(dstpos);
   zs->avail_out = Long_val(dstlen);
+  caml_release_runtime_system();
   retcode = deflate(zs, camlzip_flush_table[Int_val(vflush)]);
+  caml_acquire_runtime_system();
   if (retcode < 0 && retcode != Z_BUF_ERROR) camlzip_error("Zlib.deflate", vzs);
   used_in = Long_val(srclen) - zs->avail_in;
   used_out = Long_val(dstlen) - zs->avail_out;
   zs->next_in = NULL;         /* not required, but cleaner */
-  zs->next_out = NULL;        /* (avoid dangling pointers into Caml heap) */
-  res = alloc_small(3, 0);
+  zs->next_out = NULL;        /* (avoid dangling pointers) */
+  res = caml_alloc_small(3, 0);
   Field(res, 0) = Val_bool(retcode == Z_STREAM_END);
   Field(res, 1) = Val_int(used_in);
   Field(res, 2) = Val_int(used_out);
@@ -234,14 +237,16 @@ value camlzip_inflate_bigstring(value vzs, value srcbuf, value srcpos, value src
   zs->avail_in = Long_val(srclen);
   zs->next_out = (unsigned char *) ba_dst->data + Long_val(dstpos);
   zs->avail_out = Long_val(dstlen);
+  caml_release_runtime_system();
   retcode = inflate(zs, camlzip_flush_table[Int_val(vflush)]);
+  caml_acquire_runtime_system();
   if ((retcode < 0 && retcode != Z_BUF_ERROR) || retcode == Z_NEED_DICT)
     camlzip_error("Zlib.inflate", vzs);
   used_in = Long_val(srclen) - zs->avail_in;
   used_out = Long_val(dstlen) - zs->avail_out;
   zs->next_in = NULL;           /* not required, but cleaner */
-  zs->next_out = NULL;          /* (avoid dangling pointers into Caml heap) */
-  res = alloc_small(3, 0);
+  zs->next_out = NULL;          /* (avoid dangling pointers) */
+  res = caml_alloc_small(3, 0);
   Field(res, 0) = Val_bool(retcode == Z_STREAM_END);
   Field(res, 1) = Val_int(used_in);
   Field(res, 2) = Val_int(used_out);
