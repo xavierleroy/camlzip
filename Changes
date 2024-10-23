@@ -1,3 +1,11 @@
+Release 1.13:
+- #44: tolerate ZIP entries that are marked "deflated" but have size 0
+  [Antoine Provot]
+- #46: provide `Zip.open_update` to add entries to an existing ZIP file
+- #47: in `Zlib.inflate`, detect and fail on truncated input instead of looping
+- #48: under Windows, store file names in ZIP entries using forward slashes `/`
+  instead of backslashes `\`
+
 Release 1.12:
 - #35, #43: add full support for ZIP64 archives [Jules Villard and Xavier Leroy]
 - #41, #42: fix memory leak when a `Zlib.stream` is finalized and
