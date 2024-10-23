@@ -17,16 +17,16 @@
 
     This module provides functions for reading and writing ZIP archive
     files.  ZIP archives package one or more compressed files into
-    a single ``ZIP file'' along with information about the files,
+    a single ZIP file, along with information about the files,
     including file name, date and time of last modification, user-provided
     comments, and a checksum to verify the integrity of each entry.
     The entries of a ZIP file are not necessarily actual files, and can
     actually consist of arbitrary data.
 
-    The ZIP file format used in this module is identical to that
+    The ZIP file format used in this module is compatible with that
     implemented by the popular [pkzip] archiver under Windows,
     and by the Info-ZIP [zip] and [unzip] commands under Unix and Windows.
-    This format is also identical to the JAR file format used by Java. *)
+    This format is also compatible with the JAR file format used by Java. *)
 
 (** {1 Information on ZIP entries} *)
 
@@ -123,6 +123,10 @@ val add_entry:
               and written to the ZIP file [zf].  [name] is the file name
               stored along with this entry. 
 
+              Under Windows, backslash characters in the [name] parameter
+              are stored in the ZIP file as forward slashes [/], for
+              compatibility with other operating systems.
+
               Several optional arguments can be provided to control
               the format and attached information of the entry:
               @param comment  attached to the entry (a string).
@@ -135,11 +139,7 @@ val add_entry:
                 Default: 6 (moderate compression).
               @param mtime  last modification time (in seconds since the
                 epoch).
-                Default: the current time.
-
-              Under Windows, backslash characters [\] in the [name] parameter
-              are stored in the ZIP file as forward slashes [/], for
-              compatibility with other operating systems. *)
+                Default: the current time. *)
 
 val copy_channel_to_entry:
   in_channel -> out_file -> 
