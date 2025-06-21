@@ -10,7 +10,10 @@ https://opam.ocaml.org/packages/camlzip
 
 # Building and running
 
-`dune exec bin/main.exe [zlibcompress ... | zlibuncompress ... | zipfiles ... | ziplist]`
+`dune exec bin/main.exe zlibcompress infile compressed-outfile`
+`dune exec bin/main.exe zlibuncompress compressed-infile outfile`
+`dune exec bin/main.exe zipfiles archive-outfile infile1 ... infileN`
+`dune exec bin/main.exe ziplist archive-outfile`
 
 (See source for details.)
 
