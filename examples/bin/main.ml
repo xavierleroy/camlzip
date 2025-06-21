@@ -6,19 +6,13 @@
 
 (* Load a file as a string *)
 let contents_of_file filename =
-  let ch = open_in_bin filename in
-    try
-      let s = really_input_string ch (in_channel_length ch) in
-        close_in ch;
-        s
-    with
-      e -> close_in ch; raise e
+  In_channel.(with_open_bin filename input_all)
 
 (* The compress and uncompress functions take input as available, and produce
 output when available. We pass two functions, one to return the amount of input
 data required, one to write output data as produced. *)
-let f_zlib_in fh_in b = input fh_in b 0 (Bytes.length b)
-let f_zlib_out fh_out b l = output fh_out b 0 l
+let f_zlib_in fh_in b = In_channel.input fh_in b 0 (Bytes.length b)
+let f_zlib_out fh_out b l = Out_channel.output fh_out b 0 l
 
 (* Compress data using raw zlib. *)
 let zlib_compress filename_in filename_out =
