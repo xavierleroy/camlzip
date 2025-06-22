@@ -30,7 +30,7 @@ See the comments in files zip.mli and gzip.mli.  Alternatively, do `make doc` an
 Compilation:      `ocamlfind ocamlopt -package zip ...`
 Linking:          `ocamlfind ocamlopt -package zip -linkpgk ...`
 
-The directory test/ contains examples of using this library.
+The directories example/ and test/ contain examples of using this library.
 
 ## LICENSING
 
