@@ -28,13 +28,14 @@ This Objective Caml library provides easy access to compressed files in ZIP and 
 See the comments in files zip.mli and gzip.mli.  Alternatively, do `make doc` and open the file `./doc/index.html`.
 
 Compilation:      `ocamlfind ocamlopt -package zip ...`
+
 Linking:          `ocamlfind ocamlopt -package zip -linkpgk ...`
 
 The directories example/ and test/ contain examples of using this library.
 
 ## LICENSING
 
-This library is copyright 2001, 2002, 2006, 2007, 2008, 2016, 2017, 2020 Institut National de Recherche en Informatique et en Automatique (INRIA), and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2.1 or above, with a special exception concerning static linking.  See the file LICENSE for the exact licensing terms.
+This library is copyright Institut National de Recherche en Informatique et en Automatique (INRIA), and distributed under the terms of the GNU Lesser General Public License (LGPL) version 2.1 or above, with a special exception concerning static linking.  See the file LICENSE for the exact licensing terms.
 
 ## BUG REPORTS AND USER FEEDBACK
 
