@@ -548,7 +548,7 @@ let write_directory_entry oc e =
   let version = match e.methd with Stored -> 10 | Deflated -> 20 in
   write2 oc version;                    (* version made by *)
   write2 oc version;                    (* version needed to extract *)
-  write2 oc 8;                          (* flags *)
+  write2 oc 0;                          (* flags *)
   write2 oc (match e.methd with Stored -> 0 | Deflated -> 8); (* method *)
   let (time, date) = dostime_of_unixtime e.mtime in
   write2 oc time;                       (* last mod time *)
@@ -650,8 +650,8 @@ let add_entry_header ofile comment level mtime filename =
   write2 oc (String.length filename);   (* filename length *)
   write2 oc 20;                         (* extra length *)
   writestring oc filename;              (* filename *)
-  write2 oc 0x0001;                     (* extra data - header ID *)
-  write2 oc 16;                         (* payload size *)
+  write2 oc 0x0000;                     (* extra data - header ID *)
+  write2 oc 0;                          (* payload size *)
   write8 oc 0L;                         (* compressed size - later *)
   write8 oc 0L;                         (* uncompressed size - later *)
   { filename = filename;
@@ -680,7 +680,9 @@ let update_entry ofile crc compr_size uncompr_size entry =
   if overflow then begin
     LargeFile.seek_out oc
       Int64.(add entry.file_offset
-                 (of_int (30 + String.length entry.filename + 4)));
+               (of_int (30 + String.length entry.filename)));
+    write2 oc 0x0001;                     (* extra data - header ID *)
+    write2 oc 16;                         (* payload size *)
     write8 oc csz;                        (* compressed size *)
     write8 oc usz                         (* uncompressed size *)
   end;
