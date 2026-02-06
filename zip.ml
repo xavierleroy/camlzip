@@ -650,10 +650,10 @@ let add_entry_header ofile comment level mtime filename =
   write2 oc (String.length filename);   (* filename length *)
   write2 oc 20;                         (* extra length *)
   writestring oc filename;              (* filename *)
-  write2 oc 0x0000;                     (* extra data - header ID *)
-  write2 oc 0;                          (* payload size *)
-  write8 oc 0L;                         (* compressed size - later *)
-  write8 oc 0L;                         (* uncompressed size - later *)
+  write2 oc 0x0000;                     (* reserved space for extra data *)
+  write2 oc 16;                         (* payload size *)
+  write8 oc 0L;                         (* reserved space for compressed size *)
+  write8 oc 0L;                         (* reserved space for uncompressed size *)
   { filename = filename;
     comment = comment;
     methd = (if level = 0 then Stored else Deflated);
