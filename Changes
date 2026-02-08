@@ -1,3 +1,7 @@
+Release 1.14:
+- #52: fix errors in local file headers for files > 4 Gb [Benoît Vaugon]
+- #50: add a simple example (in example/) [John Withington]
+
 Release 1.13:
 - #44: tolerate ZIP entries that are marked "deflated" but have size 0
   [Antoine Provot]
