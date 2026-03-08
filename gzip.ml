@@ -20,7 +20,7 @@ exception Error of string
 let buffer_size = 1024
 
 type in_channel =
-  { in_chan: Stdlib.in_channel;
+  { in_chan: Stdlib.in_channel option;
     in_buffer: bytes;
     mutable in_pos: int;
     mutable in_avail: int;
@@ -29,42 +29,45 @@ type in_channel =
     mutable in_size: int32;
     mutable in_crc: int32 }
 
-let open_in_chan ic =
+let skip_header input_byte =
   (* Superficial parsing of header *)
-  begin try
-    let id1 = input_byte ic in
-    let id2 = input_byte ic in
+  try
+    let id1 = input_byte () in
+    let id2 = input_byte () in
     if id1 <> 0x1F || id2 <> 0x8B then
-      raise(Error("bad magic number, not a gzip file"));
-    let cm = input_byte ic in
+      raise(Error("bad mag() number, not a gzip file"));
+    let cm = input_byte () in
     if cm <> 8 then
       raise(Error("unknown compression method"));
-    let flags = input_byte ic in
+    let flags = input_byte () in
     if flags land 0xE0 <> 0 then
       raise(Error("bad flags, not a gzip file"));
-    for i = 1 to 6 do ignore(input_byte ic) done;
+    for i = 1 to 6 do ignore(input_byte ()) done;
     if flags land 0x04 <> 0 then begin
       (* Skip extra data *)
-      let len1 = input_byte ic in
-      let len2 = input_byte ic in
-      for i = 1 to len1 + len2 lsl 8 do ignore(input_byte ic) done
+      let len1 = input_byte () in
+      let len2 = input_byte () in
+      for i = 1 to len1 + len2 lsl 8 do ignore(input_byte ()) done
     end;
     if flags land 0x08 <> 0 then begin
       (* Skip original file name *)
-      while input_byte ic <> 0 do () done
+      while input_byte () <> 0 do () done
     end;
     if flags land 0x10 <> 0 then begin
       (* Skip comment *)
-      while input_byte ic <> 0 do () done
+      while input_byte () <> 0 do () done
     end;
     if flags land 0x02 <> 0 then begin
       (* Skip header CRC *)
-      ignore(input_byte ic); ignore(input_byte ic)
+      ignore(input_byte ()); ignore(input_byte ())
     end
   with End_of_file ->
     raise(Error("premature end of file, not a gzip file"))
-  end;
-  { in_chan = ic;
+
+
+let open_in_chan ic =
+  skip_header (fun () -> input_byte ic);
+  { in_chan = Some ic;
     in_buffer = Bytes.create buffer_size;
     in_pos = 0;
     in_avail = 0;
@@ -80,10 +83,35 @@ let open_in filename =
   with exn ->
     Stdlib.close_in ic; raise exn
 
+let in_channel_of_bytes b =
+  let pos = ref 0 in
+  let len = Bytes.length b in
+  let input_byte () =
+    if !pos = len then raise End_of_file
+    else begin
+      let c = Bytes.get b !pos in
+      incr pos;
+      Char.code c
+    end
+  in
+  skip_header input_byte;
+  { in_chan = None;
+    in_buffer = b;
+    in_pos = !pos;
+    in_avail = (len - !pos);
+    in_eof = false;
+    in_stream = Zlib.inflate_init false;
+    in_size = Int32.zero;
+    in_crc = Int32.zero }
+
+let refill_buf iz =
+  match iz.in_chan with
+  | None -> 0
+  | Some ic -> Stdlib.input ic iz.in_buffer 0 (Bytes.length iz.in_buffer)
+
 let read_byte iz =
   if iz.in_avail = 0 then begin
-    let n = Stdlib.input iz.in_chan iz.in_buffer 0
-                             (Bytes.length iz.in_buffer) in
+    let n = refill_buf iz in
     if n = 0 then raise End_of_file;
     iz.in_pos <- 0;
     iz.in_avail <- n
@@ -108,8 +136,7 @@ let rec input iz buf pos len =
     invalid_arg "Gzip.input";
   if iz.in_eof then 0 else begin
     if iz.in_avail = 0 then begin
-      let n = Stdlib.input iz.in_chan iz.in_buffer 0
-                               (Bytes.length iz.in_buffer) in
+      let n = refill_buf iz in
       if n = 0 then raise(Error("truncated file"));
       iz.in_pos <- 0;
       iz.in_avail <- n
@@ -166,10 +193,11 @@ let dispose iz =
 
 let close_in iz =
   dispose iz;
-  Stdlib.close_in iz.in_chan
+  Option.iter Stdlib.close_in iz.in_chan
 
 type out_channel =
-  { out_chan: Stdlib.out_channel;
+  { out_chan: Stdlib.out_channel option; (* only used for close/flush *)
+    output: (bytes -> int -> int -> unit);
     out_buffer: bytes;
     mutable out_pos: int;
     mutable out_avail: int;
@@ -177,29 +205,42 @@ type out_channel =
     mutable out_size: int32;
     mutable out_crc: int32 }
 
-let open_out_chan ?(level = 6) oc =
+let gzip_header =
+  Bytes.of_string "\x1F\x8B\x08\x00\x00\x00\x00\x00\x00\xFF"
+  (* 0x1F     ID1
+     0x8B     ID2
+     0x08     compression method
+     0x00     flags
+     4 x 0x00 mtime
+     0x00     xflags
+     0xFF     OS (unknown)
+  *)
+
+let open_out_gen ?(level = 6) out_chan output =
   if level < 1 || level > 9 then invalid_arg "Gzip.open_out: bad level";
+  let out_buffer = Bytes.create buffer_size in
   (* Write minimal header *)
-  output_byte oc 0x1F;                  (* ID1 *)
-  output_byte oc 0x8B;                  (* ID2 *)
-  output_byte oc 8;                     (* compression method *)
-  output_byte oc 0;                     (* flags *)
-  for i = 1 to 4 do output_byte oc 0 done; (* mtime *)
-  output_byte oc 0;                     (* xflags *)
-  output_byte oc 0xFF;                  (* OS (unknown) *)
-  { out_chan = oc;
-    out_buffer = Bytes.create buffer_size;
+  output gzip_header 0 (Bytes.length gzip_header);
+  { out_chan;
+    output;
+    out_buffer;
     out_pos = 0;
     out_avail = buffer_size;
     out_stream = Zlib.deflate_init level false;
     out_size = Int32.zero;
     out_crc = Int32.zero }
 
-let open_out ?(level = 6) filename =
-  open_out_chan ~level (Stdlib.open_out_bin filename)
+let open_out_fun ?level f =
+  open_out_gen ?level None f
+
+let open_out_chan ?level oc =
+  open_out_gen ?level (Some oc) (Stdlib.output oc)
+
+let open_out ?level filename =
+  open_out_chan ?level (Stdlib.open_out_bin filename)
 
 let flush_and_reset_out_buffer oz =
-  Stdlib.output oz.out_chan oz.out_buffer 0 oz.out_pos;
+  oz.output oz.out_buffer 0 oz.out_pos;
   oz.out_pos <- 0;
   oz.out_avail <- Bytes.length oz.out_buffer
 
@@ -234,13 +275,6 @@ let output_char oz c =
 let output_byte oz b =
   output_char oz (Char.unsafe_chr b)
 
-let write_int32 oc n =
-  let r = ref n in
-  for i = 1 to 4 do
-    Stdlib.output_byte oc (Int32.to_int !r);
-    r := Int32.shift_right_logical !r 8
-  done
-
 let flush_to_out_chan ~flush_command oz =
   let rec do_flush () =
     (* If output buffer is full, flush it *)
@@ -262,18 +296,18 @@ let flush_to_out_chan ~flush_command oz =
 let flush_continue oz =
   (* Flush everything to the underlying file channel, then flush the channel. *)
   flush_to_out_chan ~flush_command:Zlib.Z_SYNC_FLUSH oz;
-  Stdlib.flush oz.out_chan
+  Option.iter Stdlib.flush oz.out_chan
 
 let flush oz =
   (* Flush everything to the output channel. *)
   flush_to_out_chan ~flush_command:Zlib.Z_FINISH oz;
   (* Write CRC and size *)
-  write_int32 oz.out_chan oz.out_crc;
-  write_int32 oz.out_chan oz.out_size;
+  Bytes.set_int32_le oz.out_buffer 0 oz.out_crc;
+  Bytes.set_int32_le oz.out_buffer 4 oz.out_size;
+  oz.output oz.out_buffer 0 8;
   (* Dispose of stream *)
   Zlib.deflate_end oz.out_stream
 
 let close_out oz =
   flush oz;
-  Stdlib.close_out oz.out_chan
-
+  Option.iter Stdlib.close_out oz.out_chan
