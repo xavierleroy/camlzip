@@ -543,9 +543,9 @@ let write4_cautious oc ov n =
 
 let write_directory_entry oc e =
   let overflow =
-       e.file_offset > 0xFFFF_FFFFL
-    || Int64.of_int e.compressed_size > 0xFFFF_FFFFL
-    || Int64.of_int e.uncompressed_size > 0xFFFF_FFFFL in
+       e.file_offset >= 0xFFFF_FFFFL
+    || Int64.of_int e.compressed_size >= 0xFFFF_FFFFL
+    || Int64.of_int e.uncompressed_size >= 0xFFFF_FFFFL in
   write4 oc 0x02014b50l;                (* signature *)
   let version =
     if overflow then 45 (* ZIP64 *)
@@ -588,9 +588,9 @@ let close_out ofile =
   let cd_size = Int64.sub start_ecd start_cd in
   let num_entries = List.length entries in
   let overflow =
-       num_entries > 0xFFFF
-    || start_cd > 0xFFFF_FFFFL
-    || cd_size > 0xFFFF_FFFFL in
+       num_entries >= 0xFFFF
+    || start_cd >= 0xFFFF_FFFFL
+    || cd_size >= 0xFFFF_FFFFL in
   if overflow then begin
     (* Write ZIP64 end of central directory record *)
     write4 oc 0x06064b50l;              (* signature *)
@@ -674,7 +674,7 @@ let add_entry_header ofile comment level mtime filename =
 let update_entry ofile crc compr_size uncompr_size entry =
   let csz = Int64.of_int compr_size
   and usz = Int64.of_int uncompr_size in
-  let overflow = csz > 0xFFFF_FFFFL || usz > 0xFFFF_FFFFL in
+  let overflow = csz >= 0xFFFF_FFFFL || usz >= 0xFFFF_FFFFL in
   let oc = ofile.of_channel in
   let cur = LargeFile.pos_out oc in
   if overflow then begin
