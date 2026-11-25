@@ -166,7 +166,9 @@ let read_ecd64_locator filename ic ecd_pos =
   let disk_no = read4 ic in
   let ecd64_offset = read8 ic in
   let n_disks = read4 ic in
-  if disk_no <> 0l || n_disks <> 0l then
+  (* The total number of disks is 1 for a single-disk archive, but some
+     writers (including earlier versions of this library) put 0. *)
+  if disk_no <> 0l || (n_disks <> 0l && n_disks <> 1l) then
     raise (Error(filename, "", "multi-disk ZIP files not supported"));
   ecd64_offset
 
@@ -175,7 +177,10 @@ let read_ecd64_locator filename ic ecd_pos =
 type cd_info = {
   cd_offset: int64;   (* file position of start of CD *)
   cd_size: int64;     (* size of CD in bytes *)
-  cd_count: int64;    (* number of CD entries *)
+  cd_count: int64 option;
+    (* number of CD entries, if known: [None] for the count 0xFFFF of a
+       classic end of central directory record, which may have been
+       truncated by writers predating ZIP64 *)
   ecd_comment: string
 }
 
@@ -198,7 +203,7 @@ let read_ecd64 filename ic ecd_pos comment =
     raise(Error(filename, filename, "unsupported ZIP version"));
   if cd_disk_no <> 0l || n_disks <> 0l then
     raise (Error(filename, "", "multi-disk ZIP files not supported"));
-  { cd_offset; cd_size; cd_count; ecd_comment = comment }
+  { cd_offset; cd_size; cd_count = Some cd_count; ecd_comment = comment }
 
 (* Read end of central directory record *)
 
@@ -217,12 +222,28 @@ let read_ecd filename ic =
   assert (magic = Int32.of_int 0x06054b50);
   if disk_no <> 0 || cd_disk_no <> 0 then
     raise (Error(filename, "", "multi-disk ZIP files not supported"));
-  if cd_offset = 0xffff_ffffl || cd_size = 0xffff_ffffl then
+  (* A field with its maximal value means that the actual value is in the
+     ZIP64 end of central directory record.  Without ZIP64 locator, it is
+     the actual value (as written by writers predating ZIP64). *)
+  let has_ecd64_locator () =
+    (* No room for a locator if, according to the (non saturated) classic
+       record, the central directory ends after its would-be position:
+       its bytes there could then match the locator signature. *)
+    let cd_end = Int64.add (int64_of_uint32 cd_offset) (int64_of_uint32 cd_size) in
+    ecd_pos >= 20L
+    && (cd_offset = 0xffff_ffffl || cd_size = 0xffff_ffffl
+        || cd_end <= Int64.sub ecd_pos 20L)
+    && (LargeFile.seek_in ic (Int64.sub ecd_pos 20L);
+        read4 ic = 0x07064b50l) in
+  if (cd_entries = 0xFFFF || cd_offset = 0xffff_ffffl
+      || cd_size = 0xffff_ffffl)
+  && has_ecd64_locator ()
+  then
     read_ecd64 filename ic ecd_pos comment
   else
     { cd_offset = int64_of_uint32 cd_offset;
       cd_size = int64_of_uint32 cd_size;
-      cd_count = Int64.of_int cd_entries;
+      cd_count = if cd_entries = 0xFFFF then None else Some (Int64.of_int cd_entries);
       ecd_comment = comment }
 
 (* Fixup sizes from a ZIP64 extended information extra field *)
@@ -282,7 +303,12 @@ let read_directory_entry filename ic =
     else begin
       match List.assoc_opt 1 (parse_extra_field extra) with
       | None ->
-          raise(Error(filename, name, "ZIP64 extensible data record missing"))
+          (* Without ZIP64 extra field, 0xFFFFFFFF is the actual value, as
+             written by writers predating ZIP64 (or not using it for
+             this value). *)
+          (int64_of_uint32 uncompr_size,
+           int64_of_uint32 compr_size,
+           int64_of_uint32 header_offset)
       | Some e ->
           fixup_sizes e uncompr_size compr_size header_offset
     end in
@@ -320,7 +346,7 @@ let read_cd filename ic cdinfo =
       entries := e :: !entries
     done;
     if cd_bound <> LargeFile.pos_in ic
-    || (cdinfo.cd_count <> !entrycnt && cdinfo.cd_count <> 0xFFFFL)
+    || (match cdinfo.cd_count with Some n -> n <> !entrycnt | None -> false)
     then
       raise(Error(filename, "",
                   "wrong number of entries in central directory"));
@@ -336,7 +362,7 @@ let open_in filename =
     let cdinfo = read_ecd filename ic in
     let entries = read_cd filename ic cdinfo in
     let table_size =
-      match Int64.(div cdinfo.cd_count 3L |> unsigned_to_int) with
+      match Option.bind cdinfo.cd_count (fun n -> Int64.(div n 3L |> unsigned_to_int)) with
         Some sz -> sz
       | None -> 65535 in
     let dir = Hashtbl.create table_size in
@@ -541,11 +567,13 @@ let write4_cautious oc ov n =
 
 let write_directory_entry oc e =
   let overflow =
-       e.file_offset > 0xFFFF_FFFFL
-    || Int64.of_int e.compressed_size > 0xFFFF_FFFFL
-    || Int64.of_int e.uncompressed_size > 0xFFFF_FFFFL in
+       e.file_offset >= 0xFFFF_FFFFL
+    || Int64.of_int e.compressed_size >= 0xFFFF_FFFFL
+    || Int64.of_int e.uncompressed_size >= 0xFFFF_FFFFL in
   write4 oc 0x02014b50l;                (* signature *)
-  let version = match e.methd with Stored -> 10 | Deflated -> 20 in
+  let version =
+    if overflow then 45 (* ZIP64 *)
+    else match e.methd with Stored -> 10 | Deflated -> 20 in
   write2 oc version;                    (* version made by *)
   write2 oc version;                    (* version needed to extract *)
   write2 oc 0;                          (* flags *)
@@ -584,9 +612,9 @@ let close_out ofile =
   let cd_size = Int64.sub start_ecd start_cd in
   let num_entries = List.length entries in
   let overflow =
-       num_entries > 0xFFFF
-    || start_cd > 0xFFFF_FFFFL
-    || cd_size > 0xFFFF_FFFFL in
+       num_entries >= 0xFFFF
+    || start_cd >= 0xFFFF_FFFFL
+    || cd_size >= 0xFFFF_FFFFL in
   if overflow then begin
     (* Write ZIP64 end of central directory record *)
     write4 oc 0x06064b50l;              (* signature *)
@@ -604,17 +632,24 @@ let close_out ofile =
     write4 oc 0x07064b50l;              (* signature *)
     write4 oc 0l;                       (* CD disk number *)
     write8 oc start_ecd;                (* Position of ECD record *)
-    write4 oc 0l                        (* number of disks *)
+    write4 oc 1l                        (* total number of disks *)
   end;
   (* Write ZIP end of central directory record *)
   write4 oc 0x06054b50l;                (* signature *)
   write2 oc 0;                          (* disk number *)
   write2 oc 0;                          (* number of disk with central dir *)
-  let ne = if overflow then 0xFFFF else num_entries in
+  (* Only the fields that do not fit are set to their maximal value (meaning
+     "see the ZIP64 record"), so that readers which only support the ZIP64
+     records for large offsets and sizes (e.g. earlier versions of this
+     library) can read archives that need ZIP64 for the number of entries
+     only. *)
+  let ne = min num_entries 0xFFFF in
   write2 oc ne;                         (* # entries in this disk *)
   write2 oc ne;                         (* # entries in central dir *)
-  write4_cautious oc overflow cd_size;  (* size of central dir *)
-  write4_cautious oc overflow start_cd; (* offset of central dir *)
+  write4_cautious oc (cd_size >= 0xFFFF_FFFFL) cd_size;
+                                        (* size of central dir *)
+  write4_cautious oc (start_cd >= 0xFFFF_FFFFL) start_cd;
+                                        (* offset of central dir *)
   write2 oc (String.length ofile.of_comment); (* length of comment *)
   writestring oc ofile.of_comment;         (* comment *)
   Stdlib.close_out oc
@@ -652,8 +687,8 @@ let add_entry_header ofile comment level mtime filename =
   writestring oc filename;              (* filename *)
   write2 oc 0x0000;                     (* reserved space for extra data *)
   write2 oc 16;                         (* payload size *)
-  write8 oc 0L;                         (* reserved space for compressed size *)
   write8 oc 0L;                         (* reserved space for uncompressed size *)
+  write8 oc 0L;                         (* reserved space for compressed size *)
   { filename = filename;
     comment = comment;
     methd = (if level = 0 then Stored else Deflated);
@@ -670,9 +705,13 @@ let add_entry_header ofile comment level mtime filename =
 let update_entry ofile crc compr_size uncompr_size entry =
   let csz = Int64.of_int compr_size
   and usz = Int64.of_int uncompr_size in
-  let overflow = csz > 0xFFFF_FFFFL || usz > 0xFFFF_FFFFL in
+  let overflow = csz >= 0xFFFF_FFFFL || usz >= 0xFFFF_FFFFL in
   let oc = ofile.of_channel in
   let cur = LargeFile.pos_out oc in
+  if overflow then begin
+    LargeFile.seek_out oc (Int64.add entry.file_offset 4L);
+    write2 oc 45                          (* version needed: ZIP64 *)
+  end;
   LargeFile.seek_out oc (Int64.add entry.file_offset 14L);
   write4 oc crc;                        (* CRC *)
   write4_cautious oc overflow csz;      (* compressed size *)
@@ -683,8 +722,8 @@ let update_entry ofile crc compr_size uncompr_size entry =
                (of_int (30 + String.length entry.filename)));
     write2 oc 0x0001;                     (* extra data - header ID *)
     write2 oc 16;                         (* payload size *)
-    write8 oc csz;                        (* compressed size *)
-    write8 oc usz                         (* uncompressed size *)
+    write8 oc usz;                        (* uncompressed size *)
+    write8 oc csz                         (* compressed size *)
   end;
   LargeFile.seek_out oc cur;
   { entry with crc = crc;
