@@ -166,7 +166,9 @@ let read_ecd64_locator filename ic ecd_pos =
   let disk_no = read4 ic in
   let ecd64_offset = read8 ic in
   let n_disks = read4 ic in
-  if disk_no <> 0l || n_disks <> 0l then
+  (* The total number of disks is 1 for a single-disk archive, but some
+     writers (including earlier versions of this library) put 0. *)
+  if disk_no <> 0l || (n_disks <> 0l && n_disks <> 1l) then
     raise (Error(filename, "", "multi-disk ZIP files not supported"));
   ecd64_offset
 
@@ -604,7 +606,7 @@ let close_out ofile =
     write4 oc 0x07064b50l;              (* signature *)
     write4 oc 0l;                       (* CD disk number *)
     write8 oc start_ecd;                (* Position of ECD record *)
-    write4 oc 0l                        (* number of disks *)
+    write4 oc 1l                        (* total number of disks *)
   end;
   (* Write ZIP end of central directory record *)
   write4 oc 0x06054b50l;                (* signature *)
