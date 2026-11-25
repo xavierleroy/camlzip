@@ -614,11 +614,18 @@ let close_out ofile =
   write4 oc 0x06054b50l;                (* signature *)
   write2 oc 0;                          (* disk number *)
   write2 oc 0;                          (* number of disk with central dir *)
-  let ne = if overflow then 0xFFFF else num_entries in
+  (* Only the fields that do not fit are set to their maximal value (meaning
+     "see the ZIP64 record"), so that readers which only support the ZIP64
+     records for large offsets and sizes (e.g. earlier versions of this
+     library) can read archives that need ZIP64 for the number of entries
+     only. *)
+  let ne = min num_entries 0xFFFF in
   write2 oc ne;                         (* # entries in this disk *)
   write2 oc ne;                         (* # entries in central dir *)
-  write4_cautious oc overflow cd_size;  (* size of central dir *)
-  write4_cautious oc overflow start_cd; (* offset of central dir *)
+  write4_cautious oc (cd_size >= 0xFFFF_FFFFL) cd_size;
+                                        (* size of central dir *)
+  write4_cautious oc (start_cd >= 0xFFFF_FFFFL) start_cd;
+                                        (* offset of central dir *)
   write2 oc (String.length ofile.of_comment); (* length of comment *)
   writestring oc ofile.of_comment;         (* comment *)
   Stdlib.close_out oc
