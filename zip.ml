@@ -226,7 +226,13 @@ let read_ecd filename ic =
      ZIP64 end of central directory record.  Without ZIP64 locator, it is
      the actual value (as written by writers predating ZIP64). *)
   let has_ecd64_locator () =
+    (* No room for a locator if, according to the (non saturated) classic
+       record, the central directory ends after its would-be position:
+       its bytes there could then match the locator signature. *)
+    let cd_end = Int64.add (int64_of_uint32 cd_offset) (int64_of_uint32 cd_size) in
     ecd_pos >= 20L
+    && (cd_offset = 0xffff_ffffl || cd_size = 0xffff_ffffl
+        || cd_end <= Int64.sub ecd_pos 20L)
     && (LargeFile.seek_in ic (Int64.sub ecd_pos 20L);
         read4 ic = 0x07064b50l) in
   if (cd_entries = 0xFFFF || cd_offset = 0xffff_ffffl
