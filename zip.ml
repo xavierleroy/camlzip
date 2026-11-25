@@ -514,7 +514,7 @@ let open_update ?comment filename =
     ignore (Unix.LargeFile.lseek fd 0L Unix.SEEK_END);
     { of_filename = filename;
       of_channel = Unix.out_channel_of_descr fd;
-      of_entries = entries;
+      of_entries = List.rev entries;  (* most recent first *)
       of_comment = Option.value comment ~default:cdinfo.ecd_comment }
   with exn ->
     Stdlib.close_in ic; raise exn
