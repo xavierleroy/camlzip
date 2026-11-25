@@ -177,7 +177,10 @@ let read_ecd64_locator filename ic ecd_pos =
 type cd_info = {
   cd_offset: int64;   (* file position of start of CD *)
   cd_size: int64;     (* size of CD in bytes *)
-  cd_count: int64;    (* number of CD entries *)
+  cd_count: int64 option;
+    (* number of CD entries, if known: [None] for the count 0xFFFF of a
+       classic end of central directory record, which may have been
+       truncated by writers predating ZIP64 *)
   ecd_comment: string
 }
 
@@ -200,7 +203,7 @@ let read_ecd64 filename ic ecd_pos comment =
     raise(Error(filename, filename, "unsupported ZIP version"));
   if cd_disk_no <> 0l || n_disks <> 0l then
     raise (Error(filename, "", "multi-disk ZIP files not supported"));
-  { cd_offset; cd_size; cd_count; ecd_comment = comment }
+  { cd_offset; cd_size; cd_count = Some cd_count; ecd_comment = comment }
 
 (* Read end of central directory record *)
 
@@ -234,7 +237,7 @@ let read_ecd filename ic =
   else
     { cd_offset = int64_of_uint32 cd_offset;
       cd_size = int64_of_uint32 cd_size;
-      cd_count = Int64.of_int cd_entries;
+      cd_count = if cd_entries = 0xFFFF then None else Some (Int64.of_int cd_entries);
       ecd_comment = comment }
 
 (* Fixup sizes from a ZIP64 extended information extra field *)
@@ -337,7 +340,7 @@ let read_cd filename ic cdinfo =
       entries := e :: !entries
     done;
     if cd_bound <> LargeFile.pos_in ic
-    || (cdinfo.cd_count <> !entrycnt && cdinfo.cd_count <> 0xFFFFL)
+    || (match cdinfo.cd_count with Some n -> n <> !entrycnt | None -> false)
     then
       raise(Error(filename, "",
                   "wrong number of entries in central directory"));
@@ -353,7 +356,7 @@ let open_in filename =
     let cdinfo = read_ecd filename ic in
     let entries = read_cd filename ic cdinfo in
     let table_size =
-      match Int64.(div cdinfo.cd_count 3L |> unsigned_to_int) with
+      match Option.bind cdinfo.cd_count (fun n -> Int64.(div n 3L |> unsigned_to_int)) with
         Some sz -> sz
       | None -> 65535 in
     let dir = Hashtbl.create table_size in
