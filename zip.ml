@@ -547,7 +547,9 @@ let write_directory_entry oc e =
     || Int64.of_int e.compressed_size > 0xFFFF_FFFFL
     || Int64.of_int e.uncompressed_size > 0xFFFF_FFFFL in
   write4 oc 0x02014b50l;                (* signature *)
-  let version = match e.methd with Stored -> 10 | Deflated -> 20 in
+  let version =
+    if overflow then 45 (* ZIP64 *)
+    else match e.methd with Stored -> 10 | Deflated -> 20 in
   write2 oc version;                    (* version made by *)
   write2 oc version;                    (* version needed to extract *)
   write2 oc 0;                          (* flags *)
@@ -675,6 +677,10 @@ let update_entry ofile crc compr_size uncompr_size entry =
   let overflow = csz > 0xFFFF_FFFFL || usz > 0xFFFF_FFFFL in
   let oc = ofile.of_channel in
   let cur = LargeFile.pos_out oc in
+  if overflow then begin
+    LargeFile.seek_out oc (Int64.add entry.file_offset 4L);
+    write2 oc 45                          (* version needed: ZIP64 *)
+  end;
   LargeFile.seek_out oc (Int64.add entry.file_offset 14L);
   write4 oc crc;                        (* CRC *)
   write4_cautious oc overflow csz;      (* compressed size *)
