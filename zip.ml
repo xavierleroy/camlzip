@@ -652,8 +652,8 @@ let add_entry_header ofile comment level mtime filename =
   writestring oc filename;              (* filename *)
   write2 oc 0x0000;                     (* reserved space for extra data *)
   write2 oc 16;                         (* payload size *)
-  write8 oc 0L;                         (* reserved space for compressed size *)
   write8 oc 0L;                         (* reserved space for uncompressed size *)
+  write8 oc 0L;                         (* reserved space for compressed size *)
   { filename = filename;
     comment = comment;
     methd = (if level = 0 then Stored else Deflated);
@@ -683,8 +683,8 @@ let update_entry ofile crc compr_size uncompr_size entry =
                (of_int (30 + String.length entry.filename)));
     write2 oc 0x0001;                     (* extra data - header ID *)
     write2 oc 16;                         (* payload size *)
-    write8 oc csz;                        (* compressed size *)
-    write8 oc usz                         (* uncompressed size *)
+    write8 oc usz;                        (* uncompressed size *)
+    write8 oc csz                         (* compressed size *)
   end;
   LargeFile.seek_out oc cur;
   { entry with crc = crc;
