@@ -219,7 +219,17 @@ let read_ecd filename ic =
   assert (magic = Int32.of_int 0x06054b50);
   if disk_no <> 0 || cd_disk_no <> 0 then
     raise (Error(filename, "", "multi-disk ZIP files not supported"));
-  if cd_offset = 0xffff_ffffl || cd_size = 0xffff_ffffl then
+  (* A field with its maximal value means that the actual value is in the
+     ZIP64 end of central directory record.  Without ZIP64 locator, it is
+     the actual value (as written by writers predating ZIP64). *)
+  let has_ecd64_locator () =
+    ecd_pos >= 20L
+    && (LargeFile.seek_in ic (Int64.sub ecd_pos 20L);
+        read4 ic = 0x07064b50l) in
+  if (cd_entries = 0xFFFF || cd_offset = 0xffff_ffffl
+      || cd_size = 0xffff_ffffl)
+  && has_ecd64_locator ()
+  then
     read_ecd64 filename ic ecd_pos comment
   else
     { cd_offset = int64_of_uint32 cd_offset;
