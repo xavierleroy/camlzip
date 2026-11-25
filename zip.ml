@@ -284,7 +284,12 @@ let read_directory_entry filename ic =
     else begin
       match List.assoc_opt 1 (parse_extra_field extra) with
       | None ->
-          raise(Error(filename, name, "ZIP64 extensible data record missing"))
+          (* Without ZIP64 extra field, 0xFFFFFFFF is the actual value, as
+             written by writers predating ZIP64 (or not using it for
+             this value). *)
+          (int64_of_uint32 uncompr_size,
+           int64_of_uint32 compr_size,
+           int64_of_uint32 header_offset)
       | Some e ->
           fixup_sizes e uncompr_size compr_size header_offset
     end in
